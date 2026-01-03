@@ -1,84 +1,71 @@
 "use client";
 
-import { useTetrisGame } from "@/hooks/use-tetris-game";
+import { useTetrisGame, GameMode } from "@/hooks/use-tetris-game";
 import { useKeyBindings } from "@/hooks/use-key-bindings";
 import { useGameSettings } from "@/hooks/use-game-settings";
 import { TETROMINO_SHAPES, TetrominoType } from "@/lib/types";
-import { useEffect, useCallback } from "react";
+import { MOVE_NAMES, FinesseMove } from "@/lib/finesse-data";
+import { TetrisCanvas } from "@/components/tetris-canvas";
+import { useEffect } from "react";
 
-const GRID_WIDTH = 10;
-const GRID_HEIGHT = 20;
+const MODE_NAMES: Record<GameMode, string> = {
+  'RANDOM': 'All Random',
+  'Z_ONLY': 'Z Only',
+  'S_ONLY': 'S Only',
+  'I_ONLY': 'I Only',
+  'T_ONLY': 'T Only',
+  'O_ONLY': 'O Only',
+  'L_ONLY': 'L Only',
+  'J_ONLY': 'J Only',
+  'FREE_STACK': 'Free Stack',
+};
 
 export function TetrisBoard() {
-  const { grid, currentPiece, nextQueue, holdPiece, score, gameOver, startGame, handleAction, getGhostY } = useTetrisGame();
+  const game = useTetrisGame();
+  const { grid, currentPiece, nextQueue, holdPiece, canHold, score, gameOver, gameMode, target, currentMoves, startGame, handleAction, getTargetPiece } = game;
   const { getAction } = useKeyBindings();
   const { settings } = useGameSettings();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip browser key repeat - we handle repeat with DAS/ARR
+      if (e.repeat) return;
+
       const action = getAction(e.key);
       if (action) {
         e.preventDefault();
-        handleAction(action);
+        handleAction(action, true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const action = getAction(e.key);
+      if (action) {
+        e.preventDefault();
+        handleAction(action, false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [getAction, handleAction]);
 
-  const renderCell = useCallback((cell: TetrominoType | null, isGhost = false) => {
-    if (!cell) return null;
+  const renderGrid = () => {
+    const targetPiece = getTargetPiece();
+
     return (
-      <div
-        className={`tetromino-${cell.toLowerCase()} rounded-sm transition-all ${
-          isGhost ? 'opacity-30' : ''
-        }`}
-        style={{
-          boxShadow: isGhost ? 'none' : '0 0 10px var(--grid-border)'
-        }}
+      <TetrisCanvas
+        grid={grid}
+        currentPiece={currentPiece}
+        targetPiece={targetPiece}
+        showGhost={settings.showGhost}
+        gameMode={gameMode}
       />
     );
-  }, []);
-
-  const renderGrid = () => {
-    const displayGrid = grid.map(row => [...row]);
-
-    // Add current piece
-    if (currentPiece) {
-      const shape = TETROMINO_SHAPES[currentPiece.type][currentPiece.rotation];
-      for (let y = 0; y < shape.length; y++) {
-        for (let x = 0; x < shape[y].length; x++) {
-          if (shape[y][x] && currentPiece.y + y >= 0 && currentPiece.y + y < GRID_HEIGHT) {
-            displayGrid[currentPiece.y + y][currentPiece.x + x] = currentPiece.type;
-          }
-        }
-      }
-
-      // Add ghost piece
-      if (settings.showGhost) {
-        const ghostY = getGhostY();
-        for (let y = 0; y < shape.length; y++) {
-          for (let x = 0; x < shape[y].length; x++) {
-            if (shape[y][x] && ghostY + y >= 0 && ghostY + y < GRID_HEIGHT) {
-              if (!displayGrid[ghostY + y][ghostY + x]) {
-                // Mark as ghost
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return displayGrid.map((row, y) => (
-      <div key={y} className="flex">
-        {row.map((cell, x) => (
-          <div key={x} className="w-6 h-6 border border-border/20 relative">
-            {cell && renderCell(cell)}
-          </div>
-        ))}
-      </div>
-    ));
   };
 
   const renderPiecePreview = (type: TetrominoType, small = false) => {
@@ -90,8 +77,95 @@ export function TetrisBoard() {
         {shape.map((row, y) => (
           <div key={y} className="flex">
             {row.map((cell, x) => (
-              <div key={x} className={`${size} ${cell ? `tetromino-${type.toLowerCase()} rounded-sm` : ''}`} />
+              <div key={x} className={`${size} ${cell ? `tetromino-${type.toLowerCase()}` : ''}`} />
             ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderTargetMoves = () => {
+    if (!target || !target.moves || target.moves.length === 0 || gameMode === 'FREE_STACK') {
+      return null;
+    }
+
+    // Convert consecutive C,C or CC,CC to 180 for display
+    const formatMoves = (moves: FinesseMove[]): string[] => {
+      const result: string[] = [];
+      let i = 0;
+      while (i < moves.length) {
+        // Check for C,C -> 180
+        if (i < moves.length - 1 && moves[i] === 'C' && moves[i + 1] === 'C') {
+          result.push('180');
+          i += 2;
+        }
+        // Check for CC,CC -> 180
+        else if (i < moves.length - 1 && moves[i] === 'CC' && moves[i + 1] === 'CC') {
+          result.push('180');
+          i += 2;
+        }
+        else {
+          result.push(MOVE_NAMES[moves[i]]);
+          i++;
+        }
+      }
+      return result;
+    };
+
+    return (
+      <div className="space-y-2">
+        {target.moves.map((sequence, seqIndex) => (
+          <div key={seqIndex}>
+            {seqIndex > 0 && <div className="text-xs text-muted-foreground text-center my-1">OR</div>}
+            <div className="space-y-0.5">
+              {formatMoves(sequence).map((moveName, moveIndex) => (
+                <div key={moveIndex} className="text-xs font-mono">
+                  {moveName}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Convert consecutive C,C or CC,CC to 180 for display
+  const formatMovesForDisplay = (moves: FinesseMove[]): string[] => {
+    const result: string[] = [];
+    let i = 0;
+    while (i < moves.length) {
+      if (i < moves.length - 1 && moves[i] === 'C' && moves[i + 1] === 'C') {
+        result.push('180');
+        i += 2;
+      } else if (i < moves.length - 1 && moves[i] === 'CC' && moves[i + 1] === 'CC') {
+        result.push('180');
+        i += 2;
+      } else {
+        result.push(MOVE_NAMES[moves[i]]);
+        i++;
+      }
+    }
+    return result;
+  };
+
+  const renderInputSequence = () => {
+    if (currentMoves.length === 0) {
+      return (
+        <div className="text-xs text-muted-foreground">
+          No inputs yet
+        </div>
+      );
+    }
+
+    const formattedMoves = formatMovesForDisplay(currentMoves);
+
+    return (
+      <div className="space-y-0.5">
+        {formattedMoves.map((moveName, index) => (
+          <div key={index} className="text-xs font-mono">
+            {moveName}
           </div>
         ))}
       </div>
@@ -105,8 +179,15 @@ export function TetrisBoard() {
     holdPiece,
     score,
     gameOver,
+    gameMode,
+    modeName: MODE_NAMES[gameMode],
+    target,
     startGame,
     renderGrid,
     renderPiecePreview,
+    renderTargetMoves,
+    renderInputSequence,
+    cycleMode: game.cycleMode,
+    setMode: game.setMode,
   };
 }

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "cyberpunk" | "terminal" | "synthwave" | "arctic" | "brutalist" | "original";
+type Theme = "light" | "dark";
 
 type ThemeContextType = {
   theme: Theme;
@@ -12,12 +12,12 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("cyberpunk");
+  const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const stored = localStorage.getItem("finesse-theme") as Theme;
+    const stored = localStorage.getItem("theme") as Theme;
     if (stored) {
       setTheme(stored);
     }
@@ -25,8 +25,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (mounted) {
-      document.documentElement.setAttribute("data-theme", theme);
-      localStorage.setItem("finesse-theme", theme);
+      document.documentElement.classList.remove("light", "dark");
+      document.documentElement.classList.add(theme);
+      localStorage.setItem("theme", theme);
     }
   }, [theme, mounted]);
 

@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-mono);
+  --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -47,159 +47,7 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
-/* CYBERPUNK THEME - Electric blues, hot pinks, neon accents */
-:root,
-[data-theme="cyberpunk"] {
-  --background: #0a0e27;
-  --foreground: #e0f0ff;
-  --card: #141b3a;
-  --card-foreground: #e0f0ff;
-  --popover: #1a2447;
-  --popover-foreground: #e0f0ff;
-  --primary: #00d9ff;
-  --primary-foreground: #0a0e27;
-  --secondary: #ff2e97;
-  --secondary-foreground: #ffffff;
-  --muted: #1e2749;
-  --muted-foreground: #7d8fb3;
-  --accent: #b829ff;
-  --accent-foreground: #ffffff;
-  --destructive: #ff3864;
-  --border: #2a3a6e;
-  --input: #1e2749;
-  --ring: #00d9ff;
-  --radius: 0.25rem;
-
-  --grid-bg: #0f1635;
-  --grid-border: #00d9ff;
-  --ghost-color: #00d9ff80;
-  --target-color: #ff2e9780;
-  --correct-flash: #00ff88;
-  --error-flash: #ff3864;
-}
-
-/* TERMINAL GREEN - Classic hacker aesthetic */
-[data-theme="terminal"] {
-  --background: #000000;
-  --foreground: #00ff00;
-  --card: #0a0a0a;
-  --card-foreground: #00ff00;
-  --popover: #111111;
-  --popover-foreground: #00ff00;
-  --primary: #00ff00;
-  --primary-foreground: #000000;
-  --secondary: #33ff33;
-  --secondary-foreground: #000000;
-  --muted: #1a1a1a;
-  --muted-foreground: #00aa00;
-  --accent: #00cc00;
-  --accent-foreground: #000000;
-  --destructive: #ff0000;
-  --border: #00ff00;
-  --input: #0a0a0a;
-  --ring: #00ff00;
-  --radius: 0rem;
-
-  --grid-bg: #001100;
-  --grid-border: #00ff00;
-  --ghost-color: #00ff0040;
-  --target-color: #00ff0060;
-  --correct-flash: #00ff00;
-  --error-flash: #ff0000;
-}
-
-/* SYNTHWAVE - Sunset vibes with pink/purple/orange */
-[data-theme="synthwave"] {
-  --background: #2b1b35;
-  --foreground: #ffeaf7;
-  --card: #3d2548;
-  --card-foreground: #ffeaf7;
-  --popover: #4a2d5c;
-  --popover-foreground: #ffeaf7;
-  --primary: #ff6c11;
-  --primary-foreground: #2b1b35;
-  --secondary: #ff2cab;
-  --secondary-foreground: #ffffff;
-  --muted: #4a2d5c;
-  --muted-foreground: #c9a0dc;
-  --accent: #f92aad;
-  --accent-foreground: #ffffff;
-  --destructive: #ff4757;
-  --border: #7b3fa0;
-  --input: #3d2548;
-  --ring: #ff6c11;
-  --radius: 0.5rem;
-
-  --grid-bg: #352140;
-  --grid-border: #ff6c11;
-  --ghost-color: #ff6c1180;
-  --target-color: #ff2cab80;
-  --correct-flash: #72f2eb;
-  --error-flash: #ff4757;
-}
-
-/* ARCTIC - Icy blues and whites with sharp contrast */
-[data-theme="arctic"] {
-  --background: #f0f8ff;
-  --foreground: #0c1b2e;
-  --card: #ffffff;
-  --card-foreground: #0c1b2e;
-  --popover: #ffffff;
-  --popover-foreground: #0c1b2e;
-  --primary: #0077cc;
-  --primary-foreground: #ffffff;
-  --secondary: #00c2ff;
-  --secondary-foreground: #0c1b2e;
-  --muted: #e6f3ff;
-  --muted-foreground: #4a6b8a;
-  --accent: #00ffff;
-  --accent-foreground: #0c1b2e;
-  --destructive: #ff3b5c;
-  --border: #b3d9ff;
-  --input: #ffffff;
-  --ring: #0077cc;
-  --radius: 0.75rem;
-
-  --grid-bg: #ffffff;
-  --grid-border: #0077cc;
-  --ghost-color: #0077cc40;
-  --target-color: #00c2ff40;
-  --correct-flash: #00ffaa;
-  --error-flash: #ff3b5c;
-}
-
-/* BRUTALIST - Raw, high-contrast monochrome */
-[data-theme="brutalist"] {
-  --background: #ffffff;
-  --foreground: #000000;
-  --card: #ffffff;
-  --card-foreground: #000000;
-  --popover: #ffffff;
-  --popover-foreground: #000000;
-  --primary: #000000;
-  --primary-foreground: #ffffff;
-  --secondary: #333333;
-  --secondary-foreground: #ffffff;
-  --muted: #f5f5f5;
-  --muted-foreground: #666666;
-  --accent: #ff0000;
-  --accent-foreground: #ffffff;
-  --destructive: #ff0000;
-  --border: #000000;
-  --input: #ffffff;
-  --ring: #000000;
-  --radius: 0rem;
-
-  --grid-bg: #ffffff;
-  --grid-border: #000000;
-  --ghost-color: #00000030;
-  --target-color: #00000040;
-  --correct-flash: #000000;
-  --error-flash: #ff0000;
-}
-
-/* ORIGINAL - Original shadcn/ui theme */
-[data-theme="original"] {
+:root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.141 0.005 285.823);
   --card: oklch(1 0 0);
@@ -219,13 +67,27 @@
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
   --radius: 0.625rem;
+}
 
-  --grid-bg: oklch(0.985 0 0);
-  --grid-border: oklch(0.51 0.23 277);
-  --ghost-color: oklch(0.51 0.23 277 / 0.3);
-  --target-color: oklch(0.51 0.23 277 / 0.4);
-  --correct-flash: oklch(0.59 0.20 160);
-  --error-flash: oklch(0.577 0.245 27.325);
+.dark {
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.59 0.20 277);
+  --primary-foreground: oklch(0.96 0.02 272);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.552 0.016 285.938);
 }
 
 @layer base {
@@ -233,104 +95,16 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-mono transition-colors duration-300;
+    @apply bg-background text-foreground;
   }
 }
 
-/* CRT Effect */
-@keyframes flicker {
-  0% { opacity: 0.97; }
-  50% { opacity: 1; }
-  100% { opacity: 0.97; }
-}
+/* Tetromino colors - Standard Guideline */
+.tetromino-i { background-color: #00f0f0; }  /* Cyan */
+.tetromino-o { background-color: #f0f000; }  /* Yellow */
+.tetromino-t { background-color: #a000f0; }  /* Purple */
+.tetromino-s { background-color: #00f000; }  /* Green */
+.tetromino-z { background-color: #f00000; }  /* Red */
+.tetromino-j { background-color: #0000f0; }  /* Blue */
+.tetromino-l { background-color: #f0a000; }  /* Orange */
 
-.crt-effect {
-  animation: flicker 0.15s infinite;
-  text-shadow: 0 0 5px currentColor;
-}
-
-/* Scan lines */
-.scanlines {
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.15),
-    rgba(0, 0, 0, 0.15) 1px,
-    transparent 1px,
-    transparent 2px
-  );
-  pointer-events: none;
-}
-
-/* Grid glow effect */
-@keyframes grid-glow {
-  0%, 100% {
-    box-shadow:
-      0 0 10px var(--grid-border),
-      inset 0 0 10px var(--grid-border);
-  }
-  50% {
-    box-shadow:
-      0 0 20px var(--grid-border),
-      inset 0 0 20px var(--grid-border);
-  }
-}
-
-.grid-container {
-  background-color: var(--grid-bg);
-  border: 3px solid var(--grid-border);
-  animation: grid-glow 2s ease-in-out infinite;
-}
-
-/* Tetromino colors */
-.tetromino-z { background-color: #ff0d72; }
-.tetromino-s { background-color: #0dc2ff; }
-.tetromino-i { background-color: #0dff72; }
-.tetromino-t { background-color: #f538ff; }
-.tetromino-o { background-color: #ffe138; }
-.tetromino-l { background-color: #ff8e0d; }
-.tetromino-j { background-color: #3877ff; }
-
-/* Pulse animation for stats */
-@keyframes pulse-stat {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-
-.stat-pulse {
-  animation: pulse-stat 1s ease-in-out infinite;
-}
-
-/* Flash animations */
-@keyframes flash-correct {
-  0% { background-color: transparent; }
-  50% { background-color: var(--correct-flash); opacity: 0.3; }
-  100% { background-color: transparent; }
-}
-
-@keyframes flash-error {
-  0% { background-color: transparent; }
-  50% { background-color: var(--error-flash); opacity: 0.5; }
-  100% { background-color: transparent; }
-}
-
-.flash-correct {
-  animation: flash-correct 0.3s ease-out;
-}
-
-.flash-error {
-  animation: flash-error 0.3s ease-out;
-}
-
-/* Glitch effect for theme name */
-@keyframes glitch {
-  0% { transform: translate(0); }
-  20% { transform: translate(-2px, 2px); }
-  40% { transform: translate(-2px, -2px); }
-  60% { transform: translate(2px, 2px); }
-  80% { transform: translate(2px, -2px); }
-  100% { transform: translate(0); }
-}
-
-.glitch:hover {
-  animation: glitch 0.3s ease-in-out;
-}

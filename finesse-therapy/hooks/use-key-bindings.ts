@@ -51,9 +51,10 @@ export function useKeyBindings() {
     saveBindings(DEFAULT_KEY_BINDINGS);
   }, [saveBindings]);
 
-  // Get action for a key
+  // Get action for a key (case-insensitive for letter keys)
   const getAction = useCallback((key: string): GameAction | undefined => {
-    return bindings.find(b => b.key === key)?.action;
+    const normalizedKey = key.toLowerCase();
+    return bindings.find(b => b.key.toLowerCase() === normalizedKey)?.action;
   }, [bindings]);
 
   // Get key for an action
