@@ -20,16 +20,16 @@ export interface KeyBinding {
   action: GameAction;
 }
 
-// Default key bindings
+// Default key bindings (using event.code for shift-independent matching)
 export const DEFAULT_KEY_BINDINGS: KeyBinding[] = [
   { key: 'ArrowLeft', action: 'MOVE_LEFT' },
   { key: 'ArrowRight', action: 'MOVE_RIGHT' },
   { key: 'ArrowDown', action: 'SOFT_DROP' },
   { key: 'ArrowUp', action: 'HARD_DROP' },
-  { key: 'z', action: 'ROTATE_CCW' },
-  { key: 'x', action: 'ROTATE_CW' },
-  { key: 'c', action: 'ROTATE_180' },
-  { key: ' ', action: 'HOLD' },
+  { key: 'KeyZ', action: 'ROTATE_CCW' },
+  { key: 'KeyX', action: 'ROTATE_CW' },
+  { key: 'KeyC', action: 'ROTATE_180' },
+  { key: 'Space', action: 'HOLD' },
   { key: 'Escape', action: 'RESET' },
   { key: 'Tab', action: 'CHANGE_MODE' },
 ];

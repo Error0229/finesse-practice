@@ -22,7 +22,7 @@ const MODE_NAMES: Record<GameMode, string> = {
 
 export function TetrisBoard() {
   const game = useTetrisGame();
-  const { grid, currentPiece, nextQueue, holdPiece, canHold, score, gameOver, gameMode, target, currentMoves, startGame, handleAction, getTargetPiece } = game;
+  const { grid, currentPiece, nextQueue, holdPiece, score, gameOver, gameMode, target, currentMoves, startGame, handleAction, getTargetPiece } = game;
   const { getAction } = useKeyBindings();
   const { settings } = useGameSettings();
 
@@ -31,7 +31,7 @@ export function TetrisBoard() {
       // Skip browser key repeat - we handle repeat with DAS/ARR
       if (e.repeat) return;
 
-      const action = getAction(e.key);
+      const action = getAction(e.code);
       if (action) {
         e.preventDefault();
         handleAction(action, true);
@@ -39,7 +39,7 @@ export function TetrisBoard() {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      const action = getAction(e.key);
+      const action = getAction(e.code);
       if (action) {
         e.preventDefault();
         handleAction(action, false);

@@ -1,30 +1,43 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { KeyBinding, GameAction, DEFAULT_KEY_BINDINGS } from '@/lib/types';
 
 const STORAGE_KEY = 'finesse-key-bindings';
+const STORAGE_VERSION_KEY = 'finesse-key-bindings-version';
+const CURRENT_VERSION = 2; // v2 uses event.code instead of event.key
+
+function getInitialBindings(): KeyBinding[] {
+  if (typeof window === 'undefined') return DEFAULT_KEY_BINDINGS;
+
+  // Check version - if old format, clear and use defaults
+  const version = localStorage.getItem(STORAGE_VERSION_KEY);
+  if (version !== String(CURRENT_VERSION)) {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_VERSION_KEY, String(CURRENT_VERSION));
+    return DEFAULT_KEY_BINDINGS;
+  }
+
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return DEFAULT_KEY_BINDINGS;
+    }
+  }
+  return DEFAULT_KEY_BINDINGS;
+}
 
 export function useKeyBindings() {
-  const [bindings, setBindings] = useState<KeyBinding[]>(DEFAULT_KEY_BINDINGS);
+  const [bindings, setBindings] = useState<KeyBinding[]>(getInitialBindings);
   const [listening, setListening] = useState<GameAction | null>(null);
-
-  // Load bindings from localStorage
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setBindings(JSON.parse(stored));
-      } catch (e) {
-        console.error('Failed to load key bindings', e);
-      }
-    }
-  }, []);
 
   // Save bindings to localStorage
   const saveBindings = useCallback((newBindings: KeyBinding[]) => {
     setBindings(newBindings);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newBindings));
+    localStorage.setItem(STORAGE_VERSION_KEY, String(CURRENT_VERSION));
   }, []);
 
   // Start listening for a key
@@ -51,10 +64,9 @@ export function useKeyBindings() {
     saveBindings(DEFAULT_KEY_BINDINGS);
   }, [saveBindings]);
 
-  // Get action for a key (case-insensitive for letter keys)
-  const getAction = useCallback((key: string): GameAction | undefined => {
-    const normalizedKey = key.toLowerCase();
-    return bindings.find(b => b.key.toLowerCase() === normalizedKey)?.action;
+  // Get action for a key code
+  const getAction = useCallback((code: string): GameAction | undefined => {
+    return bindings.find(b => b.key === code)?.action;
   }, [bindings]);
 
   // Get key for an action

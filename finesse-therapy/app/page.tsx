@@ -17,24 +17,25 @@ import { useState } from "react";
 import { GameMode } from "@/hooks/use-tetris-game";
 
 const MODE_OPTIONS: { value: GameMode; label: string }[] = [
-  { value: 'RANDOM', label: 'All Random' },
-  { value: 'Z_ONLY', label: 'Z Only' },
-  { value: 'S_ONLY', label: 'S Only' },
-  { value: 'I_ONLY', label: 'I Only' },
-  { value: 'T_ONLY', label: 'T Only' },
-  { value: 'O_ONLY', label: 'O Only' },
-  { value: 'L_ONLY', label: 'L Only' },
-  { value: 'J_ONLY', label: 'J Only' },
-  { value: 'FREE_STACK', label: 'Free Stack' },
+  { value: "RANDOM", label: "All Random" },
+  { value: "Z_ONLY", label: "Z Only" },
+  { value: "S_ONLY", label: "S Only" },
+  { value: "I_ONLY", label: "I Only" },
+  { value: "T_ONLY", label: "T Only" },
+  { value: "O_ONLY", label: "O Only" },
+  { value: "L_ONLY", label: "L Only" },
+  { value: "J_ONLY", label: "J Only" },
+  { value: "FREE_STACK", label: "Free Stack" },
 ];
 
 export default function Page() {
   const [showSettings, setShowSettings] = useState(false);
   const game = TetrisBoard();
 
-  const finessePercent = game.score.total > 0
-    ? ((game.score.correct / game.score.total) * 100).toFixed(1)
-    : "0.0";
+  const finessePercent =
+    game.score.total > 0
+      ? ((game.score.correct / game.score.total) * 100).toFixed(1)
+      : "0.0";
 
   return (
     <div className="h-screen flex flex-col overflow-hidden p-3">
@@ -56,7 +57,10 @@ export default function Page() {
       </header>
 
       {/* Settings Sidebar */}
-      <GameSettings isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      <GameSettings
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
 
       {/* Main Game Area */}
       <div className="flex-1 flex justify-center items-center gap-4 overflow-hidden">
@@ -64,7 +68,10 @@ export default function Page() {
         <div className="flex flex-col gap-3 w-44 shrink-0">
           <Card className="p-3">
             <div className="text-sm font-bold mb-2">MODE</div>
-            <Select value={game.gameMode} onValueChange={(value) => game.setMode(value as GameMode)}>
+            <Select
+              value={game.gameMode}
+              onValueChange={(value) => game.setMode(value as GameMode)}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -78,11 +85,17 @@ export default function Page() {
             </Select>
           </Card>
 
-          {game.gameMode === 'FREE_STACK' && (
+          {game.gameMode === "FREE_STACK" && (
             <Card className="p-3">
               <div className="text-sm font-bold mb-2">HOLD</div>
-              <div className={`h-16 border rounded flex items-center justify-center transition-opacity ${!game.canHold ? 'opacity-40' : ''}`}>
-                {game.holdPiece ? game.renderPiecePreview(game.holdPiece) : (
+              <div
+                className={`h-16 border rounded flex items-center justify-center transition-opacity ${
+                  !game.canHold ? "opacity-40" : ""
+                }`}
+              >
+                {game.holdPiece ? (
+                  game.renderPiecePreview(game.holdPiece)
+                ) : (
                   <span className="text-muted-foreground text-xs">EMPTY</span>
                 )}
               </div>
@@ -92,11 +105,22 @@ export default function Page() {
           <Card className="p-3">
             <div className="text-sm font-bold mb-2">STATS</div>
             <div className="space-y-1.5 text-xs">
-              <StatItem label="Combo" value={game.score.combo.toString()} highlight={game.score.combo > 0} />
-              <StatItem label="Top Combo" value={game.score.topCombo.toString()} />
+              <StatItem
+                label="Combo"
+                value={game.score.combo.toString()}
+                highlight={game.score.combo > 0}
+              />
+              <StatItem
+                label="Top Combo"
+                value={game.score.topCombo.toString()}
+              />
               <StatItem label="Pieces" value={game.score.total.toString()} />
               <StatItem label="Correct" value={game.score.correct.toString()} />
-              <StatItem label="Finesse" value={`${finessePercent}%`} highlight />
+              <StatItem
+                label="Finesse"
+                value={`${finessePercent}%`}
+                highlight
+              />
               <StatItem label="KPP" value={game.score.kpp.toFixed(2)} />
             </div>
           </Card>
@@ -110,8 +134,12 @@ export default function Page() {
               <div className="absolute inset-0 bg-background/90 flex items-center justify-center backdrop-blur-sm rounded">
                 <div className="text-center">
                   <div className="text-3xl font-bold">Finesse Therapy</div>
-                  <div className="text-sm text-muted-foreground mt-2">Press HARD DROP to begin</div>
-                  <div className="text-xs text-muted-foreground mt-1">Mode: {game.modeName}</div>
+                  <div className="text-sm text-muted-foreground mt-2">
+                    Press HARD DROP key to begin
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Mode: {game.modeName}
+                  </div>
                 </div>
               </div>
             )}
@@ -119,9 +147,13 @@ export default function Page() {
           <div className="flex gap-3">
             <Button className="gap-2" onClick={game.startGame}>
               <Play className="h-4 w-4" />
-              {game.gameOver ? 'START' : 'RESTART'}
+              {game.gameOver ? "START" : "RESTART"}
             </Button>
-            <Button variant="outline" className="gap-2" onClick={() => setShowSettings(!showSettings)}>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setShowSettings(!showSettings)}
+            >
               <Settings className="h-4 w-4" />
               SETTINGS
             </Button>
@@ -130,7 +162,7 @@ export default function Page() {
 
         {/* Right Panel - Target + Input + Next */}
         <div className="flex flex-col gap-3 w-36 shrink-0">
-          {game.gameMode !== 'FREE_STACK' && (
+          {game.gameMode !== "FREE_STACK" && (
             <Card className="p-3">
               <div className="text-sm font-bold mb-2">TARGET MOVES</div>
               <div className="border rounded p-2 min-h-[80px]">
@@ -170,11 +202,23 @@ export default function Page() {
   );
 }
 
-function StatItem({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
+function StatItem({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
   return (
     <div className="flex justify-between">
       <span className="text-muted-foreground">{label}:</span>
-      <span className={`font-mono font-bold ${highlight ? 'text-primary' : ''}`}>{value}</span>
+      <span
+        className={`font-mono font-bold ${highlight ? "text-primary" : ""}`}
+      >
+        {value}
+      </span>
     </div>
   );
 }

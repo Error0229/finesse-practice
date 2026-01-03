@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext } from 'react';
 
 export interface GameSettings {
   DAS: number;      // Delayed Auto Shift (frames before auto-repeat starts)

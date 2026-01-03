@@ -33,6 +33,30 @@ interface TetrisCanvasProps {
   gameMode: string;
 }
 
+// Vertex shader
+const VERTEX_SHADER_SOURCE = `
+  attribute vec2 a_position;
+  attribute vec4 a_color;
+  uniform vec2 u_resolution;
+  varying vec4 v_color;
+
+  void main() {
+    vec2 clipSpace = (a_position / u_resolution) * 2.0 - 1.0;
+    gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+    v_color = a_color;
+  }
+`;
+
+// Fragment shader
+const FRAGMENT_SHADER_SOURCE = `
+  precision mediump float;
+  varying vec4 v_color;
+
+  void main() {
+    gl_FragColor = v_color;
+  }
+`;
+
 // Calculate ghost Y position synchronously from the piece and grid
 function calculateGhostY(piece: Piece, grid: (TetrominoType | null)[][]): number {
   const shape = TETROMINO_SHAPES[piece.type][piece.rotation];
@@ -71,30 +95,6 @@ export function TetrisCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programRef = useRef<WebGLProgram | null>(null);
-
-  // Vertex shader
-  const vertexShaderSource = `
-    attribute vec2 a_position;
-    attribute vec4 a_color;
-    uniform vec2 u_resolution;
-    varying vec4 v_color;
-
-    void main() {
-      vec2 clipSpace = (a_position / u_resolution) * 2.0 - 1.0;
-      gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
-      v_color = a_color;
-    }
-  `;
-
-  // Fragment shader
-  const fragmentShaderSource = `
-    precision mediump float;
-    varying vec4 v_color;
-
-    void main() {
-      gl_FragColor = v_color;
-    }
-  `;
 
   const createShader = useCallback((gl: WebGLRenderingContext, type: number, source: string) => {
     const shader = gl.createShader(type);
@@ -135,8 +135,8 @@ export function TetrisCanvas({
     }
     glRef.current = gl;
 
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
     if (!vertexShader || !fragmentShader) return;
 
     const program = createProgram(gl, vertexShader, fragmentShader);

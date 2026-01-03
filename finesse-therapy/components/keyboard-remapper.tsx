@@ -21,17 +21,47 @@ const ACTION_LABELS: Record<GameAction, string> = {
   CHANGE_MODE: "Change Mode",
 };
 
-function formatKey(key: string): string {
-  const keyMap: Record<string, string> = {
-    ' ': 'SPACE',
+function formatKey(code: string): string {
+  // Map event.code to display-friendly names
+  const codeMap: Record<string, string> = {
+    'Space': 'SPACE',
     'ArrowUp': '↑',
     'ArrowDown': '↓',
     'ArrowLeft': '←',
     'ArrowRight': '→',
     'Escape': 'ESC',
     'Tab': 'TAB',
+    'ShiftLeft': 'L-SHIFT',
+    'ShiftRight': 'R-SHIFT',
+    'ControlLeft': 'L-CTRL',
+    'ControlRight': 'R-CTRL',
+    'AltLeft': 'L-ALT',
+    'AltRight': 'R-ALT',
+    'Backspace': 'BKSP',
+    'Enter': 'ENTER',
+    'Semicolon': ';',
+    'Comma': ',',
+    'Period': '.',
+    'Slash': '/',
+    'Backquote': '`',
+    'BracketLeft': '[',
+    'BracketRight': ']',
+    'Backslash': '\\',
+    'Quote': "'",
+    'Minus': '-',
+    'Equal': '=',
   };
-  return keyMap[key] || key.toUpperCase();
+
+  if (codeMap[code]) return codeMap[code];
+
+  // Handle letter keys (KeyA -> A, KeyZ -> Z)
+  if (code.startsWith('Key')) return code.slice(3);
+
+  // Handle digit keys (Digit1 -> 1, Numpad5 -> NUM5)
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Numpad')) return 'NUM' + code.slice(6);
+
+  return code.toUpperCase();
 }
 
 export function KeyboardRemapper() {
@@ -49,11 +79,11 @@ export function KeyboardRemapper() {
 
     const handleKeyPress = (e: KeyboardEvent) => {
       e.preventDefault();
-      if (e.key === 'Escape') {
+      if (e.code === 'Escape') {
         stopListening();
         return;
       }
-      updateBinding(listening, e.key);
+      updateBinding(listening, e.code);
     };
 
     window.addEventListener('keydown', handleKeyPress);

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { TetrominoType, TETROMINO_SHAPES } from '@/lib/types';
-import { FinesseMove, PieceIndex, generateTarget, compareMoves, getOptimalMoves, isValidMovePrefix, MOVE_NAMES } from '@/lib/finesse-data';
+import { FinesseMove, PieceIndex, generateTarget, compareMoves, getOptimalMoves } from '@/lib/finesse-data';
 import { useGameSettings } from '@/hooks/use-game-settings';
 
 const GRID_WIDTH = 10;
@@ -170,11 +170,15 @@ export function useTetrisGame() {
 
   // Refs for state to avoid stale closures in callbacks
   const gridRef = useRef(grid);
-  gridRef.current = grid;
   const currentPieceRef = useRef(currentPiece);
-  currentPieceRef.current = currentPiece;
   const gameOverRef = useRef(gameOver);
-  gameOverRef.current = gameOver;
+
+  // Sync refs with state in effect to avoid updating refs during render
+  useEffect(() => {
+    gridRef.current = grid;
+    currentPieceRef.current = currentPiece;
+    gameOverRef.current = gameOver;
+  });
 
   const getNextPiece = useCallback(() => {
     if (bagRef.current.length === 0) {
@@ -274,16 +278,6 @@ export function useTetrisGame() {
       setScore(prev => ({ ...prev, combo: 0 }));
     }
   }, [currentPiece]);
-
-  // Check for finesse fault and reset if enabled
-  const checkFinesseFault = useCallback(() => {
-    if (!settings.retryOnFault || gameMode === 'FREE_STACK' || !target) return;
-
-    const isValid = isValidMovePrefix(moveListRef.current, target.moves);
-    if (!isValid) {
-      resetPiece();
-    }
-  }, [settings.retryOnFault, gameMode, target, resetPiece]);
 
   const checkCollision = useCallback((piece: Piece, offsetX = 0, offsetY = 0, newRotation?: number): boolean => {
     const rotation = newRotation ?? piece.rotation;
@@ -845,16 +839,6 @@ export function useTetrisGame() {
         break;
     }
   }, [handleLeftPress, handleLeftRelease, handleRightPress, handleRightRelease, movePiece, hardDrop, rotatePiece, rotate180, hold, gameOver, startGame, cycleMode]);
-
-  const getGhostY = useCallback(() => {
-    if (!currentPiece) return 0;
-
-    let ghostY = currentPiece.y;
-    while (!checkCollision(currentPiece, 0, ghostY - currentPiece.y + 1)) {
-      ghostY++;
-    }
-    return ghostY;
-  }, [currentPiece, checkCollision]);
 
   // Get target piece for rendering
   const getTargetPiece = useCallback((): Piece | null => {

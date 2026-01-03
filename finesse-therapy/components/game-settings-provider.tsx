@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import {
   GameSettings,
   GameSettingsContext,
@@ -8,29 +8,29 @@ import {
   STORAGE_KEY
 } from '@/hooks/use-game-settings';
 
-export function GameSettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
-  const [mounted, setMounted] = useState(false);
-
-  // Load from localStorage
-  useEffect(() => {
-    setMounted(true);
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
-      } catch (e) {
-        console.error('Failed to load game settings', e);
-      }
+function getInitialSettings(): GameSettings {
+  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+    } catch {
+      return DEFAULT_SETTINGS;
     }
-  }, []);
+  }
+  return DEFAULT_SETTINGS;
+}
+
+export function GameSettingsProvider({ children }: { children: ReactNode }) {
+  const [settings, setSettings] = useState<GameSettings>(getInitialSettings);
+  const mountedRef = useRef(true);
 
   // Save to localStorage
   useEffect(() => {
-    if (mounted) {
+    if (mountedRef.current) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     }
-  }, [settings, mounted]);
+  }, [settings]);
 
   const updateSetting = useCallback(<K extends keyof GameSettings>(
     key: K,
