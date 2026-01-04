@@ -886,6 +886,7 @@ export function useTetrisGame() {
     currentPiece,
     nextQueue,
     holdPiece,
+    canHold,
     score,
     gameOver,
     gameMode,
