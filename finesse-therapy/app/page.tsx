@@ -203,7 +203,7 @@ export default function Page() {
 
         {/* Learning Progress Panel - only show in Learning Mode */}
         {game.gameMode === "LEARNING" && (
-          <div className="w-52 shrink-0 max-h-full overflow-y-auto">
+          <div className="w-48 shrink-0 max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
             <LearningProgress />
           </div>
         )}
