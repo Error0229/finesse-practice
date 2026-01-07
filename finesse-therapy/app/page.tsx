@@ -43,10 +43,16 @@ export default function Page() {
     <div className="h-screen flex flex-col overflow-hidden p-3">
       {/* Header */}
       <header className="flex items-center justify-between mb-3 shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Finesse <span className="text-primary">Therapy</span>
-        </h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold tracking-tight">
+            Finesse <span className="text-primary">Therapy</span>
+          </h1>
+          {/* Flow indicator in header - shows when player is in the zone */}
+          {game.renderFlowIndicator()}
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Difficulty indicator */}
+          {game.renderDifficultyIndicator()}
           <Button
             variant="outline"
             size="sm"
@@ -130,6 +136,12 @@ export default function Page() {
 
         {/* Center - Game Board */}
         <div className="flex flex-col items-center gap-3 shrink-0">
+          {/* Timing bar above game board - only in Learning mode */}
+          {game.gameMode === "LEARNING" && !game.gameOver && (
+            <div className="w-full max-w-[280px]">
+              {game.renderTimingBar()}
+            </div>
+          )}
           <Card className="p-3 relative">
             {game.renderGrid()}
             {game.gameOver && (
@@ -142,6 +154,11 @@ export default function Page() {
                   <div className="text-xs text-muted-foreground mt-1">
                     Mode: {game.modeName}
                   </div>
+                  {game.gameMode === "LEARNING" && (
+                    <div className="text-xs text-primary mt-2 font-bold">
+                      Rhythm Mode Active
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -201,9 +218,14 @@ export default function Page() {
           </Card>
         </div>
 
-        {/* Learning Progress Panel - only show in Learning Mode */}
+        {/* Learning Progress & Rhythm Panel - only show in Learning Mode */}
         {game.gameMode === "LEARNING" && (
-          <div className="w-48 shrink-0 max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+          <div className="w-52 shrink-0 max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 space-y-3">
+            {/* Difficulty Stats Panel */}
+            {game.renderDifficultyStats()}
+            {/* Rhythm Stats Panel */}
+            {game.renderRhythmStats()}
+            {/* Learning Progress Panel */}
             <LearningProgress />
           </div>
         )}

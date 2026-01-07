@@ -5,6 +5,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { GameSettingsProvider } from "@/components/game-settings-provider";
 import { KeyBindingsProvider } from "@/hooks/use-key-bindings";
 import { LearningProgressProvider } from "@/hooks/use-learning-progress";
+import { RhythmSystemProvider } from "@/hooks/use-rhythm-system";
+import { DifficultySystemProvider } from "@/hooks/use-difficulty-system";
+import { VisualEffectsProvider } from "@/hooks/use-visual-effects";
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -48,7 +51,13 @@ export default function RootLayout({
           <GameSettingsProvider>
             <KeyBindingsProvider>
               <LearningProgressProvider>
-                {children}
+                <RhythmSystemProvider>
+                  <DifficultySystemProvider>
+                    <VisualEffectsProvider>
+                      {children}
+                    </VisualEffectsProvider>
+                  </DifficultySystemProvider>
+                </RhythmSystemProvider>
               </LearningProgressProvider>
             </KeyBindingsProvider>
           </GameSettingsProvider>
