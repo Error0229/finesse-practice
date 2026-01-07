@@ -3,6 +3,7 @@
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { GameSettings } from "@/components/game-settings";
 import { TetrisBoard } from "@/components/tetris-board";
+import { LearningProgress } from "@/components/learning-progress";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import { useState } from "react";
 import { GameMode } from "@/hooks/use-tetris-game";
 
 const MODE_OPTIONS: { value: GameMode; label: string }[] = [
+  { value: "LEARNING", label: "Learning Mode" },
   { value: "RANDOM", label: "All Random" },
   { value: "Z_ONLY", label: "Z Only" },
   { value: "S_ONLY", label: "S Only" },
@@ -161,7 +163,8 @@ export default function Page() {
         </div>
 
         {/* Right Panel - Target + Input + Next */}
-        <div className="flex flex-col gap-3 w-36 shrink-0">
+        <div className="flex flex-col gap-3 w-48 shrink-0 max-h-full overflow-y-auto">
+          {/* Show TARGET MOVES for all modes except FREE_STACK */}
           {game.gameMode !== "FREE_STACK" && (
             <Card className="p-3">
               <div className="text-sm font-bold mb-2">TARGET MOVES</div>
@@ -197,6 +200,13 @@ export default function Page() {
             </div>
           </Card>
         </div>
+
+        {/* Learning Progress Panel - only show in Learning Mode */}
+        {game.gameMode === "LEARNING" && (
+          <div className="w-52 shrink-0 max-h-full overflow-y-auto">
+            <LearningProgress />
+          </div>
+        )}
       </div>
     </div>
   );

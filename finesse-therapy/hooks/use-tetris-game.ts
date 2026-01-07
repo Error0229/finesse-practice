@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useContext } from 'react';
 import { TetrominoType, TETROMINO_SHAPES } from '@/lib/types';
 import { FinesseMove, PieceIndex, generateTarget, compareMoves, getOptimalMoves } from '@/lib/finesse-data';
 import { useGameSettings } from '@/hooks/use-game-settings';
+import { LearningProgressContext } from '@/hooks/use-learning-progress';
 
 const GRID_WIDTH = 10;
 const GRID_HEIGHT = 20;
@@ -91,7 +92,7 @@ interface Target {
   moves: FinesseMove[][];
 }
 
-export type GameMode = 'RANDOM' | 'Z_ONLY' | 'S_ONLY' | 'I_ONLY' | 'T_ONLY' | 'O_ONLY' | 'L_ONLY' | 'J_ONLY' | 'FREE_STACK';
+export type GameMode = 'RANDOM' | 'Z_ONLY' | 'S_ONLY' | 'I_ONLY' | 'T_ONLY' | 'O_ONLY' | 'L_ONLY' | 'J_ONLY' | 'FREE_STACK' | 'LEARNING';
 
 const PIECE_MAP: Record<string, PieceIndex> = {
   'Z': 0, 'S': 1, 'I': 2, 'T': 3, 'O': 4, 'L': 5, 'J': 6
@@ -107,6 +108,7 @@ const MODE_PIECES: Record<GameMode, TetrominoType[] | null> = {
   'L_ONLY': ['L'],
   'J_ONLY': ['J'],
   'FREE_STACK': null,
+  'LEARNING': null,
 };
 
 function createEmptyGrid(): Cell[][] {
@@ -134,6 +136,12 @@ export function useTetrisGame() {
 
   // Game settings
   const { settings } = useGameSettings();
+
+  // Learning progress context (optional - only available when provider is mounted)
+  const learningContext = useContext(LearningProgressContext);
+
+  // Current learning target (for LEARNING mode)
+  const learningTargetRef = useRef<{ piece: TetrominoType; column: number; rotation: number } | null>(null);
 
   // Target for finesse practice
   const [target, setTarget] = useState<Target | null>(null);
@@ -193,12 +201,35 @@ export function useTetrisGame() {
   const selectTarget = useCallback((pieceType: TetrominoType) => {
     if (gameMode === 'FREE_STACK') {
       setTarget(null);
+      learningTargetRef.current = null;
       return;
     }
+
+    // In LEARNING mode, use the learning progress system to select target
+    if (gameMode === 'LEARNING' && learningContext) {
+      const learningTarget = learningContext.selectNextLearningPattern();
+      if (learningTarget) {
+        setTarget({
+          column: learningTarget.column,
+          rotation: learningTarget.rotation,
+          moves: learningTarget.moves,
+        });
+        learningTargetRef.current = {
+          piece: learningTarget.piece,
+          column: learningTarget.column,
+          rotation: learningTarget.rotation,
+        };
+        return;
+      }
+      // Fallback to random if no learning target available
+    }
+
+    // Default behavior for other modes
     const pieceIndex = PIECE_MAP[pieceType];
     const newTarget = generateTarget(pieceIndex);
     setTarget(newTarget);
-  }, [gameMode]);
+    learningTargetRef.current = null;
+  }, [gameMode, learningContext]);
 
   // Update next queue based on current bag state
   const updateNextQueue = useCallback(() => {
@@ -226,6 +257,41 @@ export function useTetrisGame() {
   }, [gameMode]);
 
   const spawnPiece = useCallback((type?: TetrominoType) => {
+    // For LEARNING mode, select target first to know which piece to spawn
+    if (gameMode === 'LEARNING' && learningContext && !type) {
+      const learningTarget = learningContext.selectNextLearningPattern();
+      if (learningTarget) {
+        const newPiece: Piece = {
+          type: learningTarget.piece,
+          rotation: 0,
+          x: STARTING_COL,
+          y: learningTarget.piece === 'I' ? -1 : 0
+        };
+
+        setCurrentPiece(newPiece);
+        currentPieceRef.current = newPiece;
+        setCanHold(true);
+        moveListRef.current = [];
+        setCurrentMoves([]);
+        keyCountRef.current = 0;
+
+        setTarget({
+          column: learningTarget.column,
+          rotation: learningTarget.rotation,
+          moves: learningTarget.moves,
+        });
+        learningTargetRef.current = {
+          piece: learningTarget.piece,
+          column: learningTarget.column,
+          rotation: learningTarget.rotation,
+        };
+
+        // Update next queue for preview (still use bag system for preview)
+        updateNextQueue();
+        return;
+      }
+    }
+
     const pieceType = type || getNextPiece();
     const newPiece: Piece = {
       type: pieceType,
@@ -249,7 +315,7 @@ export function useTetrisGame() {
     if (!type) {
       updateNextQueue();
     }
-  }, [getNextPiece, selectTarget, updateNextQueue]);
+  }, [gameMode, learningContext, getNextPiece, selectTarget, updateNextQueue]);
 
   // Reset piece to starting position (for retry on fault)
   const resetPiece = useCallback((resetCombo = true) => {
@@ -483,6 +549,16 @@ export function useTetrisGame() {
       totalKeys: newTotalKeys
     });
 
+    // Record result in learning progress for LEARNING mode
+    if (gameMode === 'LEARNING' && learningContext && learningTargetRef.current) {
+      learningContext.recordResult(
+        learningTargetRef.current.piece,
+        learningTargetRef.current.column,
+        learningTargetRef.current.rotation,
+        isCorrect
+      );
+    }
+
     // If retry on fault is enabled and finesse was incorrect, reset piece
     if (settings.retryOnFault && !isCorrect && gameMode !== 'FREE_STACK') {
       resetPiece(false); // Don't reset combo again, already done above
@@ -524,7 +600,7 @@ export function useTetrisGame() {
       });
       setTimeout(() => spawnPiece(), 50);
     }
-  }, [currentPiece, checkCollision, gameOver, target, gameMode, score, spawnPiece, settings, resetPiece]);
+  }, [currentPiece, checkCollision, gameOver, target, gameMode, score, spawnPiece, settings, resetPiece, learningContext]);
 
   const hold = useCallback(() => {
     if (!currentPiece || !canHold || gameOver || gameMode !== 'FREE_STACK') return;
@@ -769,7 +845,7 @@ export function useTetrisGame() {
   }, [spawnPiece]);
 
   const cycleMode = useCallback(() => {
-    const modes: GameMode[] = ['RANDOM', 'Z_ONLY', 'S_ONLY', 'I_ONLY', 'T_ONLY', 'O_ONLY', 'L_ONLY', 'J_ONLY', 'FREE_STACK'];
+    const modes: GameMode[] = ['RANDOM', 'Z_ONLY', 'S_ONLY', 'I_ONLY', 'T_ONLY', 'O_ONLY', 'L_ONLY', 'J_ONLY', 'FREE_STACK', 'LEARNING'];
     const currentIndex = modes.indexOf(gameMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
     setGameMode(nextMode);

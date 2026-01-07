@@ -18,6 +18,7 @@ const MODE_NAMES: Record<GameMode, string> = {
   'L_ONLY': 'L Only',
   'J_ONLY': 'J Only',
   'FREE_STACK': 'Free Stack',
+  'LEARNING': 'Learning Mode',
 };
 
 export function TetrisBoard() {

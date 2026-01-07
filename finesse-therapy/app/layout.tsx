@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GameSettingsProvider } from "@/components/game-settings-provider";
 import { KeyBindingsProvider } from "@/hooks/use-key-bindings";
+import { LearningProgressProvider } from "@/hooks/use-learning-progress";
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -46,7 +47,9 @@ export default function RootLayout({
         <ThemeProvider>
           <GameSettingsProvider>
             <KeyBindingsProvider>
-              {children}
+              <LearningProgressProvider>
+                {children}
+              </LearningProgressProvider>
             </KeyBindingsProvider>
           </GameSettingsProvider>
         </ThemeProvider>
