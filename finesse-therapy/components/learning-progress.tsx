@@ -352,15 +352,13 @@ function IsometricCell({
   return (
     <polygon
       points={points}
-      fill={color}
+      fill={isHovered ? "#fff" : color}
       opacity={isHovered ? 1 : opacity}
-      stroke={isHovered ? "white" : "rgba(0,0,0,0.3)"}
-      strokeWidth={isHovered ? 1 : 0.5}
+      stroke={isHovered ? "#fff" : "rgba(0,0,0,0.3)"}
+      strokeWidth={isHovered ? 1.5 : 0.5}
       style={{
-        filter: glow !== "none" || isHovered ? "url(#glow)" : "none",
-        transition: "all 0.15s ease",
-        transform: isHovered ? "scale(1.2)" : "scale(1)",
-        transformOrigin: `${x}px ${y}px`,
+        filter: isHovered ? "url(#glow)" : (glow !== "none" ? "url(#glow)" : "none"),
+        transition: "fill 0.1s ease, stroke 0.1s ease, opacity 0.1s ease",
       }}
     />
   );
