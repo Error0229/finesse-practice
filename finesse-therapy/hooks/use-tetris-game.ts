@@ -156,6 +156,10 @@ export function useTetrisGame() {
     totalKeys: 0
   });
 
+  // Last result feedback for learning mode (null = no feedback, true = correct, false = incorrect)
+  const [lastResult, setLastResult] = useState<boolean | null>(null);
+  const lastResultTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Move tracking for display
   const [currentMoves, setCurrentMoves] = useState<FinesseMove[]>([]);
 
@@ -557,6 +561,15 @@ export function useTetrisGame() {
         learningTargetRef.current.rotation,
         isCorrect
       );
+
+      // Show visual feedback
+      if (lastResultTimeoutRef.current) {
+        clearTimeout(lastResultTimeoutRef.current);
+      }
+      setLastResult(isCorrect);
+      lastResultTimeoutRef.current = setTimeout(() => {
+        setLastResult(null);
+      }, 400);
     }
 
     // If retry on fault is enabled and finesse was incorrect, reset piece
@@ -969,6 +982,7 @@ export function useTetrisGame() {
     gameMode,
     target,
     currentMoves,
+    lastResult,
     startGame,
     handleAction,
     getTargetPiece,

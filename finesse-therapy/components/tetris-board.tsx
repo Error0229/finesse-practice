@@ -23,7 +23,7 @@ const MODE_NAMES: Record<GameMode, string> = {
 
 export function TetrisBoard() {
   const game = useTetrisGame();
-  const { grid, currentPiece, nextQueue, holdPiece, canHold, score, gameOver, gameMode, target, currentMoves, startGame, handleAction, getTargetPiece } = game;
+  const { grid, currentPiece, nextQueue, holdPiece, canHold, score, gameOver, gameMode, target, currentMoves, lastResult, startGame, handleAction, getTargetPiece } = game;
   const { getAction } = useKeyBindings();
   const { settings } = useGameSettings();
 
@@ -185,6 +185,7 @@ export function TetrisBoard() {
     gameMode,
     modeName: MODE_NAMES[gameMode],
     target,
+    lastResult,
     startGame,
     renderGrid,
     renderPiecePreview,

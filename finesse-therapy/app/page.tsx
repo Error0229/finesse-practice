@@ -132,6 +132,16 @@ export default function Page() {
         <div className="flex flex-col items-center gap-3 shrink-0">
           <Card className="p-3 relative">
             {game.renderGrid()}
+            {/* Visual feedback overlay for learning mode */}
+            {game.lastResult !== null && game.gameMode === "LEARNING" && (
+              <div
+                className={`absolute inset-0 pointer-events-none rounded transition-opacity duration-300 ${
+                  game.lastResult
+                    ? "bg-green-500/30 shadow-[inset_0_0_30px_rgba(34,197,94,0.5)]"
+                    : "bg-red-500/30 shadow-[inset_0_0_30px_rgba(239,68,68,0.5)]"
+                }`}
+              />
+            )}
             {game.gameOver && (
               <div className="absolute inset-0 bg-background/90 flex items-center justify-center backdrop-blur-sm rounded">
                 <div className="text-center">
