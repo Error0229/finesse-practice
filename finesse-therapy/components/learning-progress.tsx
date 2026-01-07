@@ -136,8 +136,8 @@ export function LearningProgress({ className }: LearningProgressProps) {
 
         {/* Isometric 3D Grid */}
         <div
-          className="relative overflow-hidden transition-all duration-300"
-          style={{ height: expanded ? "280px" : "140px" }}
+          className="relative overflow-visible transition-all duration-300"
+          style={{ height: expanded ? "320px" : "180px" }}
         >
           <IsometricCube
             masteryGrid={masteryGrid}
@@ -145,14 +145,14 @@ export function LearningProgress({ className }: LearningProgressProps) {
             setHoveredPattern={setHoveredPattern}
             expanded={expanded}
           />
-        </div>
 
-        {/* Hover tooltip */}
-        {hoveredPattern && (
-          <div className="mt-2 px-2 py-1 bg-white/5 rounded text-[10px] text-white/70 text-center">
-            {hoveredPattern}
-          </div>
-        )}
+          {/* Hover tooltip - absolute positioned */}
+          {hoveredPattern && (
+            <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/80 border border-white/20 rounded text-[11px] text-white text-center font-bold">
+              {hoveredPattern}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Piece Legend - compact horizontal */}
@@ -227,11 +227,11 @@ function IsometricCube({
   setHoveredPattern: (pattern: string | null) => void;
   expanded: boolean;
 }) {
-  // Isometric projection settings
-  const cellSize = expanded ? 8 : 6;
-  const layerGap = expanded ? 28 : 20;
-  const offsetX = expanded ? 100 : 80;
-  const offsetY = expanded ? 20 : 10;
+  // Isometric projection settings - larger cells for visibility
+  const cellSize = expanded ? 12 : 10;
+  const layerGap = expanded ? 38 : 32;
+  const offsetX = expanded ? 120 : 100;
+  const offsetY = expanded ? 15 : 8;
 
   // Convert to isometric coordinates
   const toIso = (x: number, y: number, z: number) => {
@@ -243,7 +243,7 @@ function IsometricCube({
   return (
     <svg
       className="w-full h-full"
-      viewBox={expanded ? "0 0 200 280" : "0 0 180 140"}
+      viewBox={expanded ? "0 0 240 320" : "0 0 200 180"}
       preserveAspectRatio="xMidYMid meet"
     >
       <defs>
@@ -268,11 +268,11 @@ function IsometricCube({
           <g key={piece}>
             {/* Layer label */}
             <text
-              x={toIso(-1.5, 0, z).x}
-              y={toIso(-1.5, 0, z).y + 3}
-              className="text-[8px] font-bold"
+              x={toIso(-1.2, 0, z).x}
+              y={toIso(-1.2, 0, z).y + 4}
+              className="text-[11px] font-bold"
               fill={PIECE_COLORS[piece].base}
-              style={{ filter: "drop-shadow(0 0 2px rgba(0,0,0,0.8))" }}
+              style={{ filter: "drop-shadow(0 0 3px rgba(0,0,0,0.9))" }}
             >
               {piece}
             </text>
@@ -314,10 +314,10 @@ function IsometricCube({
       })}
 
       {/* Axis labels */}
-      <text x={offsetX + 40} y={expanded ? 270 : 135} className="text-[7px]" fill="rgba(255,255,255,0.3)">
+      <text x={offsetX + 60} y={expanded ? 305 : 170} className="text-[9px]" fill="rgba(255,255,255,0.4)">
         Col →
       </text>
-      <text x={offsetX - 30} y={expanded ? 250 : 125} className="text-[7px]" fill="rgba(255,255,255,0.3)">
+      <text x={offsetX - 40} y={expanded ? 285 : 155} className="text-[9px]" fill="rgba(255,255,255,0.4)">
         ← Rot
       </text>
     </svg>
