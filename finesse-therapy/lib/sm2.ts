@@ -101,9 +101,15 @@ export function getQuality(correct: boolean): Quality {
 
 /**
  * Calculate new easiness factor based on quality
- * EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+ * Modified to be more forgiving - failures reduce easiness less harshly
+ * Original: EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
  */
 function calculateNewEasiness(currentEasiness: number, quality: Quality): number {
+  if (quality < 3) {
+    // Failure: reduce easiness gently (only 0.1 reduction instead of ~0.8)
+    return Math.max(MIN_EASINESS, currentEasiness - 0.1);
+  }
+  // Success: use standard SM-2 formula
   const newEasiness = currentEasiness + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   return Math.max(MIN_EASINESS, newEasiness);
 }
@@ -128,6 +134,7 @@ function calculateNextInterval(card: SM2Card, quality: Quality): number {
 
 /**
  * Review a card and update its SM-2 state
+ * Modified to be more forgiving - failures don't completely reset progress
  */
 export function reviewCard(
   card: SM2Card,
@@ -141,9 +148,11 @@ export function reviewCard(
   let newInterval: number;
 
   if (quality < 3) {
-    // Failed - reset repetitions but keep learning
-    newRepetitions = 0;
-    newInterval = INITIAL_INTERVAL;
+    // Failed - but don't completely reset progress (keep at least half of repetitions)
+    // This encourages continued learning without being too punishing
+    newRepetitions = Math.max(0, Math.floor(card.repetitions / 2));
+    // Reduce interval but don't reset completely - use at least 2 for reviewed patterns
+    newInterval = Math.max(2, Math.floor(card.interval / 2));
   } else {
     // Passed - increment repetitions
     newRepetitions = card.repetitions + 1;
@@ -207,10 +216,10 @@ export function getMasteredCards(cards: Record<string, SM2Card>): SM2Card[] {
 /**
  * Select the next pattern to practice using SM-2 scheduling
  *
- * Priority:
- * 1. Due cards (sorted by lowest accuracy)
- * 2. Unreviewed patterns (to introduce new patterns gradually)
- * 3. Unmastered cards (sorted by lowest accuracy)
+ * Priority (optimized for expanding capability first):
+ * 1. Unreviewed patterns (introduce new patterns to expand capability)
+ * 2. Due cards that need reinforcement
+ * 3. Unmastered cards (continue learning in-progress patterns)
  * 4. Mastered cards due for review (10-20 interval)
  */
 export function selectNextPattern(
@@ -219,27 +228,38 @@ export function selectNextPattern(
   globalRepetitionCount: number,
   lastMasteredReview: number
 ): string | null {
-  // 1. Check for due cards
-  const dueCards = getDueCards(cards, globalRepetitionCount);
-  if (dueCards.length > 0) {
-    // Sort by accuracy (lowest first) to prioritize struggling patterns
-    dueCards.sort((a, b) => getCardAccuracy(a) - getCardAccuracy(b));
-    return dueCards[0].patternId;
-  }
-
-  // 2. Check for unreviewed patterns (introduce new patterns)
+  // 1. PRIORITY: Introduce new patterns first (expand capability)
   const reviewedPatternIds = new Set(Object.keys(cards));
   const unreviewed = allPatternIds.filter(id => !reviewedPatternIds.has(id));
   if (unreviewed.length > 0) {
-    // Introduce one new pattern at a time
+    // Introduce one new pattern at a time (random selection for variety)
     return unreviewed[Math.floor(Math.random() * unreviewed.length)];
   }
 
-  // 3. Prioritize unmastered cards
+  // 2. Check for due cards that need reinforcement
+  const dueCards = getDueCards(cards, globalRepetitionCount);
+  if (dueCards.length > 0) {
+    // Sort by number of attempts (fewer first) to balance exposure
+    // Then by accuracy (lower first) as secondary sort
+    dueCards.sort((a, b) => {
+      const attemptsA = a.successCount + a.failCount;
+      const attemptsB = b.successCount + b.failCount;
+      if (attemptsA !== attemptsB) return attemptsA - attemptsB;
+      return getCardAccuracy(a) - getCardAccuracy(b);
+    });
+    return dueCards[0].patternId;
+  }
+
+  // 3. Continue with unmastered cards (in-progress patterns)
   const unmastered = getUnmasteredCards(cards);
   if (unmastered.length > 0) {
-    // Sort by accuracy (lowest first)
-    unmastered.sort((a, b) => getCardAccuracy(a) - getCardAccuracy(b));
+    // Sort by attempts (fewer first) to ensure all patterns get exposure
+    unmastered.sort((a, b) => {
+      const attemptsA = a.successCount + a.failCount;
+      const attemptsB = b.successCount + b.failCount;
+      if (attemptsA !== attemptsB) return attemptsA - attemptsB;
+      return getCardAccuracy(a) - getCardAccuracy(b);
+    });
     return unmastered[0].patternId;
   }
 
