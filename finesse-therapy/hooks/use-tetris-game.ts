@@ -215,8 +215,9 @@ export function useTetrisGame() {
         preview.push(nextBagRef.current[nextBagIndex]);
         nextBagIndex++;
       } else {
-        // Generate more if needed
+        // Generate more if needed - reset index since it's a fresh bag
         nextBagRef.current = generateBag(gameMode);
+        nextBagIndex = 0;
         preview.push(nextBagRef.current[nextBagIndex]);
         nextBagIndex++;
       }

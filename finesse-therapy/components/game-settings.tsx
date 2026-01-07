@@ -25,17 +25,41 @@ const ACTION_LABELS: Record<GameAction, string> = {
   CHANGE_MODE: "Mode",
 };
 
-function formatKey(key: string): string {
+function formatKey(code: string): string {
   const keyMap: Record<string, string> = {
-    ' ': 'SPACE',
+    'Space': 'SPACE',
     'ArrowUp': '↑',
     'ArrowDown': '↓',
     'ArrowLeft': '←',
     'ArrowRight': '→',
     'Escape': 'ESC',
     'Tab': 'TAB',
+    'ShiftLeft': 'L-SHIFT',
+    'ShiftRight': 'R-SHIFT',
+    'ControlLeft': 'L-CTRL',
+    'ControlRight': 'R-CTRL',
+    'AltLeft': 'L-ALT',
+    'AltRight': 'R-ALT',
+    'Backspace': 'BKSP',
+    'Enter': 'ENTER',
+    'Semicolon': ';',
+    'Quote': "'",
+    'Comma': ',',
+    'Period': '.',
+    'Slash': '/',
+    'Backquote': '`',
+    'BracketLeft': '[',
+    'BracketRight': ']',
+    'Backslash': '\\',
+    'Minus': '-',
+    'Equal': '=',
   };
-  return keyMap[key] || key.toUpperCase();
+  if (keyMap[code]) return keyMap[code];
+  // Handle KeyA -> A, KeyZ -> Z, Digit1 -> 1, etc.
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Numpad')) return 'NUM' + code.slice(6);
+  return code.toUpperCase();
 }
 
 interface GameSettingsProps {
@@ -64,11 +88,12 @@ export function GameSettings({ isOpen, onClose }: GameSettingsProps) {
 
     const handleKeyPress = (e: KeyboardEvent) => {
       e.preventDefault();
-      if (e.key === 'Escape') {
+      if (e.code === 'Escape') {
         stopListening();
         return;
       }
-      updateBinding(listening, e.key);
+      // Use e.code to match how keys are looked up in tetris-board
+      updateBinding(listening, e.code);
     };
 
     window.addEventListener('keydown', handleKeyPress);

@@ -3,6 +3,7 @@ import { JetBrains_Mono, Orbitron } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GameSettingsProvider } from "@/components/game-settings-provider";
+import { KeyBindingsProvider } from "@/hooks/use-key-bindings";
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -44,7 +45,9 @@ export default function RootLayout({
       <body className="antialiased font-mono">
         <ThemeProvider>
           <GameSettingsProvider>
-            {children}
+            <KeyBindingsProvider>
+              {children}
+            </KeyBindingsProvider>
           </GameSettingsProvider>
         </ThemeProvider>
       </body>

@@ -69,6 +69,7 @@ export function TetrisBoard() {
   };
 
   const renderPiecePreview = (type: TetrominoType, small = false) => {
+    if (!type || !TETROMINO_SHAPES[type]) return null;
     const shape = TETROMINO_SHAPES[type][0];
     const size = small ? 'w-3 h-3' : 'w-4 h-4';
 
