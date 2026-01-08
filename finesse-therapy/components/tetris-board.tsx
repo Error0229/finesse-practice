@@ -39,6 +39,8 @@ export function TetrisBoard() {
   // Track piece changes to start rhythm timing
   const prevPieceRef = useRef<typeof currentPiece>(null);
   const lastDropTimeRef = useRef(0);
+  const comboBeforeDropRef = useRef(0);
+  const currentScoreRef = useRef(score);
 
   // Start rhythm timing when a new piece spawns
   useEffect(() => {
@@ -47,9 +49,10 @@ export function TetrisBoard() {
     const pieceChanged = currentPiece !== prevPieceRef.current;
 
     if (currentPiece && pieceChanged && gameMode === 'LEARNING' && !gameOver) {
-      // Small delay to ensure piece is fully settled before starting timing
+      // Delay must be > 60ms to ensure recordHit completes first
+      // recordHit is called after 60ms in handleActionWithRhythm
       const timeSinceLastDrop = performance.now() - lastDropTimeRef.current;
-      const delay = timeSinceLastDrop < 100 ? 50 : 0;
+      const delay = timeSinceLastDrop < 150 ? 100 : 0;
 
       setTimeout(() => {
         rhythm.startPattern();
@@ -78,23 +81,32 @@ export function TetrisBoard() {
     prevComboRef.current = score.combo;
   }, [score.combo, visualEffects]);
 
+  // Keep score ref in sync with latest state
+  useEffect(() => {
+    currentScoreRef.current = score;
+    comboBeforeDropRef.current = score.combo;
+  }, [score]);
+
   // Wrap handleAction to record rhythm hits and difficulty on hard drop
   const handleActionWithRhythm = useCallback((action: string, isKeyDown: boolean) => {
     if (action === 'HARD_DROP' && isKeyDown && !gameOver && gameMode === 'LEARNING') {
       lastDropTimeRef.current = performance.now();
       const startTime = rhythm.getCurrentTiming();
+      const comboBefore = comboBeforeDropRef.current;
 
-      // Defer recording to after the drop completes
+      // Process the drop first
+      handleAction(action, isKeyDown);
+
+      // Defer recording to after the state updates
       setTimeout(() => {
-        const newCombo = game.score.combo;
-        const correct = newCombo > score.combo;
+        // Check if combo increased (correct placement) using ref for latest value
+        const correct = currentScoreRef.current.combo > comboBefore;
         const responseTime = startTime || 1000;
 
         // Record to rhythm system and get judgment
         const judgment = rhythm.recordHit(correct);
 
         // Trigger visual effects based on judgment
-        // Center of game board approximately
         const effectX = 140;
         const effectY = 280;
         visualEffects.triggerJudgmentEffect(judgment, effectX, effectY);
@@ -102,9 +114,10 @@ export function TetrisBoard() {
         // Record to difficulty system
         difficulty.recordAttempt(correct, responseTime);
       }, 60);
+      return; // Already called handleAction above
     }
     handleAction(action, isKeyDown);
-  }, [handleAction, gameOver, gameMode, score.combo, game.score, rhythm, difficulty, visualEffects]);
+  }, [handleAction, gameOver, gameMode, rhythm, difficulty, visualEffects]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
