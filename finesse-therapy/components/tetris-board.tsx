@@ -38,16 +38,22 @@ export function TetrisBoard() {
 
   // Track piece changes to start rhythm timing
   const prevPieceRef = useRef<typeof currentPiece>(null);
-  const isDroppedRef = useRef(false);
+  const lastDropTimeRef = useRef(0);
 
   // Start rhythm timing when a new piece spawns
   useEffect(() => {
-    // Detect new piece spawn (piece changed from null to something, or piece type changed)
-    if (currentPiece && (!prevPieceRef.current || prevPieceRef.current.type !== currentPiece.type)) {
-      if (!isDroppedRef.current && gameMode === 'LEARNING' && !gameOver) {
+    // Detect new piece spawn - compare by reference, not just type
+    // This handles same piece type appearing twice in a row
+    const pieceChanged = currentPiece !== prevPieceRef.current;
+
+    if (currentPiece && pieceChanged && gameMode === 'LEARNING' && !gameOver) {
+      // Small delay to ensure piece is fully settled before starting timing
+      const timeSinceLastDrop = performance.now() - lastDropTimeRef.current;
+      const delay = timeSinceLastDrop < 100 ? 50 : 0;
+
+      setTimeout(() => {
         rhythm.startPattern();
-      }
-      isDroppedRef.current = false;
+      }, delay);
     }
     prevPieceRef.current = currentPiece;
   }, [currentPiece, gameMode, gameOver, rhythm]);
@@ -75,7 +81,7 @@ export function TetrisBoard() {
   // Wrap handleAction to record rhythm hits and difficulty on hard drop
   const handleActionWithRhythm = useCallback((action: string, isKeyDown: boolean) => {
     if (action === 'HARD_DROP' && isKeyDown && !gameOver && gameMode === 'LEARNING') {
-      isDroppedRef.current = true;
+      lastDropTimeRef.current = performance.now();
       const startTime = rhythm.getCurrentTiming();
 
       // Defer recording to after the drop completes
