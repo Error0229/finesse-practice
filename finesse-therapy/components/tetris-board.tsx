@@ -63,7 +63,10 @@ export function TetrisBoard() {
     }
   }, [gameOver, resetRhythm]);
 
-  // Pause timer when window loses focus, resume when it gains focus
+  // Ref for game container to detect clicks outside
+  const gameContainerRef = useRef<HTMLDivElement>(null);
+
+  // Pause timer when window loses focus or clicking outside game area
   useEffect(() => {
     if (gameMode !== 'LEARNING') return;
 
@@ -71,18 +74,40 @@ export function TetrisBoard() {
       pauseTimer();
     };
 
-    const handleFocus = () => {
-      resumeTimer();
+    const handleClickOutside = (e: MouseEvent) => {
+      // Check if click is outside the game container
+      if (gameContainerRef.current && !gameContainerRef.current.contains(e.target as Node)) {
+        pauseTimer();
+      }
     };
 
     window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
+    document.addEventListener('mousedown', handleClickOutside);
 
     return () => {
       window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [gameMode, pauseTimer, resumeTimer]);
+  }, [gameMode, pauseTimer]);
+
+  // Get rhythm state for pause detection
+  const { ringActive, patternStartTime, isPaused } = rhythm.state;
+
+  // Resume timer only when any key is pressed while paused
+  useEffect(() => {
+    if (gameMode !== 'LEARNING' || !isPaused) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      resumeTimer();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [gameMode, isPaused, resumeTimer]);
 
   // Track previous combo for effect triggers
   const prevComboRef = useRef(0);
@@ -104,7 +129,6 @@ export function TetrisBoard() {
   }, [score]);
 
   // Auto-trigger TOO_SLOW when timing expires (no key press needed)
-  const { ringActive, patternStartTime, isPaused } = rhythm.state;
   useEffect(() => {
     // Only run when timing is active and not paused
     if (gameMode !== 'LEARNING' || gameOver || !ringActive || !patternStartTime || isPaused) {
@@ -364,6 +388,21 @@ export function TetrisBoard() {
     );
   };
 
+  const renderPauseOverlay = () => {
+    if (!isPaused || gameMode !== 'LEARNING') return null;
+
+    return (
+      <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-30 backdrop-blur-sm">
+        <div className="text-3xl font-black text-white mb-4" style={{ textShadow: '0 0 20px rgba(255,255,255,0.5)' }}>
+          PAUSED
+        </div>
+        <div className="text-sm text-white/70">
+          Press any key to continue
+        </div>
+      </div>
+    );
+  };
+
   return {
     grid,
     currentPiece,
@@ -385,6 +424,8 @@ export function TetrisBoard() {
     renderDifficultyStats,
     renderDifficultyIndicator,
     renderFlowIndicator,
+    renderPauseOverlay,
+    gameContainerRef,
     rhythmState: rhythm.state,
     difficultyState: difficulty.state,
     cycleMode: game.cycleMode,

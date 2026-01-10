@@ -32,16 +32,17 @@ export function GamificationPanel() {
 
   const totalJudgments = perfectCount + greatCount + goodCount + missCount;
 
-  return (
-    <Card className="p-2.5 font-mono text-xs">
+    return (
+    <Card className="p-4 bg-card/50 backdrop-blur-sm border-border/50 font-mono text-xs">
       {/* Score + Difficulty Header */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div
-            className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+            className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider"
             style={{
-              backgroundColor: tierSettings.color + '25',
+              backgroundColor: tierSettings.color + '20',
               color: tierSettings.color,
+              boxShadow: `0 0 10px ${tierSettings.color}20`
             }}
           >
             {tierSettings.name}
@@ -49,30 +50,30 @@ export function GamificationPanel() {
           <span className="text-muted-foreground text-[10px]">Lv.{currentDifficulty}</span>
         </div>
         {isInFlow && (
-          <div className="flex items-center gap-1 text-yellow-400">
-            <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
-            <span className="text-[9px] font-bold">FLOW x{flowStreak}</span>
+          <div className="flex items-center gap-1.5 text-yellow-400 px-2 py-0.5 rounded-full bg-yellow-400/10 border border-yellow-400/20">
+            <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse shadow-[0_0_8px_#facc15]" />
+            <span className="text-[9px] font-bold tracking-wider">FLOW STATE x{flowStreak}</span>
           </div>
         )}
       </div>
 
       {/* Score display */}
-      <div className="text-center py-2 mb-2 bg-muted/50 rounded">
-        <div className="text-xl font-black text-foreground">
+      <div className="text-center py-4 mb-4 bg-black/20 rounded-lg border border-border/10">
+        <div className="text-2xl font-black text-foreground tracking-tight">
           {totalScore.toLocaleString()}
         </div>
-        <div className="flex items-center justify-center gap-2 mt-1">
+        <div className="flex items-center justify-center gap-3 mt-1.5">
           {rhythmCombo > 0 && (
-            <span className="text-[10px] text-cyan-400">{rhythmCombo}x combo</span>
+            <span className="text-[10px] text-cyan-400 font-bold tracking-wider">{rhythmCombo}x COMBO</span>
           )}
           {currentMultiplier > 1 && (
-            <span className="text-[10px] text-yellow-400">{currentMultiplier}x mult</span>
+            <span className="text-[10px] text-yellow-400 font-bold tracking-wider">{currentMultiplier}x MULT</span>
           )}
         </div>
       </div>
 
       {/* Judgment counts - compact row */}
-      <div className="flex justify-between mb-2 px-1">
+      <div className="flex justify-between mb-4 px-2">
         <JudgmentDot label="P" count={perfectCount} color={JUDGMENT_COLORS.PERFECT} />
         <JudgmentDot label="G" count={greatCount} color={JUDGMENT_COLORS.GREAT} />
         <JudgmentDot label="OK" count={goodCount} color={JUDGMENT_COLORS.GOOD} />
@@ -80,29 +81,35 @@ export function GamificationPanel() {
       </div>
 
       {/* Performance bars */}
-      <div className="space-y-1.5">
+      <div className="space-y-2.5">
         <MiniBar
-          label="Accuracy"
+          label="ACCURACY"
           value={currentAccuracy}
           format={`${(currentAccuracy * 100).toFixed(0)}%`}
         />
         <MiniBar
-          label="Speed"
+          label="SPEED"
           value={Math.max(0, 1 - averageResponseTime / 2000)}
           format={`${Math.round(averageResponseTime)}ms`}
         />
       </div>
 
       {/* Difficulty bar */}
-      <div className="mt-2 pt-2 border-t">
-        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+      <div className="mt-4 pt-4 border-t border-border/30">
+        <div className="flex justify-between text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wider">
+            <span>Difficulty Progress</span>
+            <span>{currentDifficulty}%</span>
+        </div>
+        <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
           <div
-            className="h-full transition-all duration-500"
+            className="h-full transition-all duration-500 ease-out relative"
             style={{
               width: `${currentDifficulty}%`,
               background: `linear-gradient(90deg, ${DIFFICULTY_TIERS.CASUAL.color}, ${DIFFICULTY_TIERS.STANDARD.color}, ${DIFFICULTY_TIERS.HARDCORE.color}, ${DIFFICULTY_TIERS.INSANE.color})`,
             }}
-          />
+          >
+             <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/50 blur-[2px]" />
+          </div>
         </div>
       </div>
     </Card>

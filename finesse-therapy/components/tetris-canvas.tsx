@@ -5,7 +5,7 @@ import { TetrominoType, TETROMINO_SHAPES } from '@/lib/types';
 
 const GRID_WIDTH = 10;
 const GRID_HEIGHT = 20;
-const CELL_SIZE = 28;
+const CELL_SIZE = 36;
 
 // Colors for each tetromino type
 const TETROMINO_COLORS: Record<TetrominoType, [number, number, number]> = {

@@ -15,8 +15,8 @@ interface RhythmOverlayProps {
  * Uses direct DOM manipulation for smooth animation
  */
 export function TimingRing({ targetX, targetY, cellSize, active }: RhythmOverlayProps) {
-  const { state, getPatternStartTime } = useRhythmSystem();
-  const { ringActive, patternStartTime } = state;
+  const { state, getCurrentTiming } = useRhythmSystem();
+  const { ringActive, patternStartTime, isPaused } = state;
   const containerRef = useRef<HTMLDivElement>(null);
   const outerCircleRef = useRef<SVGCircleElement>(null);
   const innerCircleRef = useRef<SVGCircleElement>(null);
@@ -30,7 +30,7 @@ export function TimingRing({ targetX, targetY, cellSize, active }: RhythmOverlay
 
   // Animation loop - directly updates DOM
   useEffect(() => {
-    if (!active || !ringActive) {
+    if (!active || !ringActive || isPaused) {
       return;
     }
 
@@ -42,9 +42,8 @@ export function TimingRing({ targetX, targetY, cellSize, active }: RhythmOverlay
     };
 
     const animate = () => {
-      const startTime = getPatternStartTime();
-      if (startTime !== null && containerRef.current) {
-        const elapsed = performance.now() - startTime;
+      if (containerRef.current) {
+        const elapsed = getCurrentTiming();
         const progress = Math.min(elapsed / TIMING_BAR_MAX_TIME, 1);
         const currentRadius = maxRadius - (maxRadius - minRadius) * progress;
         const color = getColor(progress);
@@ -74,7 +73,7 @@ export function TimingRing({ targetX, targetY, cellSize, active }: RhythmOverlay
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [active, ringActive, patternStartTime, getPatternStartTime, centerX, centerY, maxRadius, minRadius]);
+  }, [active, ringActive, patternStartTime, isPaused, getCurrentTiming, centerX, centerY, maxRadius, minRadius]);
 
   if (!active || !ringActive) return null;
 
@@ -299,11 +298,10 @@ function StatRow({ label, value, highlight = false }: { label: string; value: st
  * Uses direct DOM manipulation for smooth 60fps animation
  */
 export function TimingBar() {
-  const { state } = useRhythmSystem();
-  const { ringActive, patternStartTime } = state;
+  const { state, getCurrentTiming } = useRhythmSystem();
+  const { ringActive, patternStartTime, isPaused } = state;
   const indicatorRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const localStartTimeRef = useRef<number>(0);
   const isAnimatingRef = useRef<boolean>(false);
 
   // Use layout effect to ensure DOM is ready before animation starts
@@ -315,20 +313,19 @@ export function TimingBar() {
     }
     isAnimatingRef.current = false;
 
-    if (!ringActive) {
-      // Reset indicator position when inactive
-      if (indicatorRef.current) {
+    if (!ringActive || isPaused) {
+      // Keep current position when paused, reset when inactive
+      if (!ringActive && indicatorRef.current) {
         indicatorRef.current.style.left = '0%';
       }
       return;
     }
 
-    // Capture start time immediately when pattern becomes active
-    localStartTimeRef.current = performance.now();
-
-    // Reset to start position immediately
-    if (indicatorRef.current) {
-      indicatorRef.current.style.left = '0%';
+    // Reset to start position when pattern becomes active
+    if (indicatorRef.current && patternStartTime) {
+      const elapsed = getCurrentTiming();
+      const progress = Math.min(elapsed / TIMING_BAR_MAX_TIME, 1);
+      indicatorRef.current.style.left = `${progress * 100}%`;
     }
 
     isAnimatingRef.current = true;
@@ -337,7 +334,7 @@ export function TimingBar() {
       if (!isAnimatingRef.current) return;
 
       if (indicatorRef.current) {
-        const elapsed = performance.now() - localStartTimeRef.current;
+        const elapsed = getCurrentTiming();
         const progress = Math.min(elapsed / TIMING_BAR_MAX_TIME, 1);
         indicatorRef.current.style.left = `${progress * 100}%`;
       }
@@ -357,7 +354,7 @@ export function TimingBar() {
         animationFrameRef.current = null;
       }
     };
-  }, [ringActive, patternStartTime]);
+  }, [ringActive, patternStartTime, isPaused, getCurrentTiming]);
 
   if (!ringActive) return null;
 
