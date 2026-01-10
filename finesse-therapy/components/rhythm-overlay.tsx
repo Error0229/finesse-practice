@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from 'react';
-import { HitJudgment, JUDGMENT_COLORS, useRhythmSystem } from '@/hooks/use-rhythm-system';
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
+import { HitJudgment, JUDGMENT_COLORS, TIMING_BAR_MAX_TIME, useRhythmSystem } from '@/hooks/use-rhythm-system';
 
 interface RhythmOverlayProps {
   targetX: number;  // Target piece X position in grid units
@@ -12,68 +12,109 @@ interface RhythmOverlayProps {
 
 /**
  * Timing ring that shrinks around the target position
+ * Uses direct DOM manipulation for smooth animation
  */
 export function TimingRing({ targetX, targetY, cellSize, active }: RhythmOverlayProps) {
-  const { state } = useRhythmSystem();
-  const { ringProgress, ringActive } = state;
+  const { state, getPatternStartTime } = useRhythmSystem();
+  const { ringActive, patternStartTime } = state;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const outerCircleRef = useRef<SVGCircleElement>(null);
+  const innerCircleRef = useRef<SVGCircleElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Calculate center position (convert grid units to pixels)
+  const centerX = (targetX + 2) * cellSize;
+  const centerY = (targetY + 1) * cellSize;
+  const maxRadius = cellSize * 4;
+  const minRadius = cellSize * 1.5;
+
+  // Animation loop - directly updates DOM
+  useEffect(() => {
+    if (!active || !ringActive) {
+      return;
+    }
+
+    const getColor = (progress: number) => {
+      if (progress < 0.2) return '#ffd700';
+      if (progress < 0.4) return '#22c55e';
+      if (progress < 0.75) return '#3b82f6';
+      return '#ef4444';
+    };
+
+    const animate = () => {
+      const startTime = getPatternStartTime();
+      if (startTime !== null && containerRef.current) {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / TIMING_BAR_MAX_TIME, 1);
+        const currentRadius = maxRadius - (maxRadius - minRadius) * progress;
+        const color = getColor(progress);
+        const opacity = Math.max(0.3, 1 - progress * 0.5);
+
+        containerRef.current.style.left = `${centerX - currentRadius}px`;
+        containerRef.current.style.top = `${centerY - currentRadius}px`;
+        containerRef.current.style.width = `${currentRadius * 2}px`;
+        containerRef.current.style.height = `${currentRadius * 2}px`;
+
+        if (outerCircleRef.current) {
+          outerCircleRef.current.setAttribute('stroke', color);
+          outerCircleRef.current.setAttribute('opacity', String(opacity));
+        }
+        if (innerCircleRef.current) {
+          innerCircleRef.current.setAttribute('stroke', color);
+          innerCircleRef.current.setAttribute('opacity', String(opacity * 0.7));
+        }
+      }
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [active, ringActive, patternStartTime, getPatternStartTime, centerX, centerY, maxRadius, minRadius]);
 
   if (!active || !ringActive) return null;
 
-  // Calculate center position (convert grid units to pixels)
-  const centerX = (targetX + 2) * cellSize; // +2 to center on typical piece
-  const centerY = (targetY + 1) * cellSize;
-
-  // Ring starts large and shrinks
-  const maxRadius = cellSize * 4;
-  const minRadius = cellSize * 1.5;
-  const currentRadius = maxRadius - (maxRadius - minRadius) * ringProgress;
-
-  // Color changes based on progress
-  const getColor = () => {
-    if (ringProgress < 0.2) return '#ffd700'; // Gold - Perfect zone approaching
-    if (ringProgress < 0.4) return '#22c55e'; // Green - Great zone
-    if (ringProgress < 0.75) return '#3b82f6'; // Blue - Good zone
-    return '#ef4444'; // Red - Miss zone
-  };
-
-  const opacity = Math.max(0.3, 1 - ringProgress * 0.5);
-
   return (
     <div
+      ref={containerRef}
       className="absolute pointer-events-none"
       style={{
-        left: centerX - currentRadius,
-        top: centerY - currentRadius,
-        width: currentRadius * 2,
-        height: currentRadius * 2,
+        left: centerX - maxRadius,
+        top: centerY - maxRadius,
+        width: maxRadius * 2,
+        height: maxRadius * 2,
       }}
     >
-      {/* Outer ring */}
       <svg
         className="w-full h-full animate-pulse"
         viewBox="0 0 100 100"
-        style={{ filter: `drop-shadow(0 0 10px ${getColor()})` }}
       >
         <circle
+          ref={outerCircleRef}
           cx="50"
           cy="50"
           r="45"
           fill="none"
-          stroke={getColor()}
+          stroke="#ffd700"
           strokeWidth="3"
-          opacity={opacity}
+          opacity="1"
           strokeDasharray="10 5"
           className="animate-spin"
           style={{ animationDuration: '3s' }}
         />
         <circle
+          ref={innerCircleRef}
           cx="50"
           cy="50"
           r="35"
           fill="none"
-          stroke={getColor()}
+          stroke="#ffd700"
           strokeWidth="2"
-          opacity={opacity * 0.7}
+          opacity="0.7"
         />
       </svg>
     </div>
@@ -235,10 +276,68 @@ function StatRow({ label, value, highlight = false }: { label: string; value: st
 
 /**
  * Timing indicator bar (Guitar Hero style)
+ * Uses direct DOM manipulation for smooth 60fps animation
  */
 export function TimingBar() {
   const { state } = useRhythmSystem();
-  const { ringProgress, ringActive } = state;
+  const { ringActive, patternStartTime } = state;
+  const indicatorRef = useRef<HTMLDivElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const localStartTimeRef = useRef<number>(0);
+  const isAnimatingRef = useRef<boolean>(false);
+
+  // Use layout effect to ensure DOM is ready before animation starts
+  useLayoutEffect(() => {
+    // Cancel any existing animation
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    isAnimatingRef.current = false;
+
+    if (!ringActive) {
+      // Reset indicator position when inactive
+      if (indicatorRef.current) {
+        indicatorRef.current.style.left = '0%';
+      }
+      return;
+    }
+
+    // Capture start time immediately when pattern becomes active
+    localStartTimeRef.current = performance.now();
+
+    // Reset to start position immediately
+    if (indicatorRef.current) {
+      indicatorRef.current.style.left = '0%';
+    }
+
+    isAnimatingRef.current = true;
+
+    const animate = () => {
+      if (!isAnimatingRef.current) return;
+
+      if (indicatorRef.current) {
+        const elapsed = performance.now() - localStartTimeRef.current;
+        const progress = Math.min(elapsed / TIMING_BAR_MAX_TIME, 1);
+        indicatorRef.current.style.left = `${progress * 100}%`;
+      }
+
+      if (isAnimatingRef.current) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    // Start animation on next frame
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      isAnimatingRef.current = false;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [ringActive, patternStartTime]);
 
   if (!ringActive) return null;
 
@@ -269,11 +368,12 @@ export function TimingBar() {
         );
       })}
 
-      {/* Progress indicator */}
+      {/* Progress indicator - uses ref for direct DOM updates */}
       <div
-        className="absolute top-0 bottom-0 w-1 bg-white transition-all duration-75"
+        ref={indicatorRef}
+        className="absolute top-0 bottom-0 w-1 bg-white"
         style={{
-          left: `${ringProgress * 100}%`,
+          left: '0%',
           boxShadow: '0 0 8px white, 0 0 16px white',
         }}
       />

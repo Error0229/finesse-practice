@@ -38,12 +38,16 @@ export const JUDGMENT_COLORS: Record<HitJudgment, string> = {
 };
 
 /**
+ * Max time for timing bar animation
+ */
+export const TIMING_BAR_MAX_TIME = TIMING_THRESHOLDS.GOOD + 500;
+
+/**
  * Rhythm state for the current pattern
  */
 export interface RhythmState {
   // Timing
   patternStartTime: number | null;
-  elapsedTime: number;
 
   // Judgments
   lastJudgment: HitJudgment | null;
@@ -65,14 +69,12 @@ export interface RhythmState {
   recentHitTimes: number[];
   estimatedBPM: number;
 
-  // Ring animation
-  ringProgress: number; // 0-1, how much the ring has shrunk
+  // Ring animation - only tracks active state, progress is calculated on demand
   ringActive: boolean;
 }
 
 const DEFAULT_RHYTHM_STATE: RhythmState = {
   patternStartTime: null,
-  elapsedTime: 0,
   lastJudgment: null,
   judgmentTimestamp: null,
   perfectCount: 0,
@@ -85,7 +87,6 @@ const DEFAULT_RHYTHM_STATE: RhythmState = {
   currentMultiplier: 1,
   recentHitTimes: [],
   estimatedBPM: 120,
-  ringProgress: 0,
   ringActive: false,
 };
 
@@ -104,8 +105,8 @@ export interface RhythmSystemContextType {
   getCurrentTiming: () => number;
   getJudgmentForTime: (ms: number, correct: boolean) => HitJudgment;
 
-  // Ring animation
-  getRingProgress: () => number;
+  // Ring animation - get start time for components to calculate their own progress
+  getPatternStartTime: () => number | null;
 }
 
 export const RhythmSystemContext = createContext<RhythmSystemContextType | null>(null);
@@ -167,34 +168,7 @@ interface RhythmSystemProviderProps {
  */
 export function RhythmSystemProvider({ children }: RhythmSystemProviderProps) {
   const [state, setState] = useState<RhythmState>(DEFAULT_RHYTHM_STATE);
-  const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
-
-  // Animation loop for ring progress
-  useEffect(() => {
-    const animate = () => {
-      if (startTimeRef.current !== null) {
-        const elapsed = performance.now() - startTimeRef.current;
-        const maxTime = TIMING_THRESHOLDS.GOOD + 500; // Ring completes just after GOOD threshold
-        const progress = Math.min(elapsed / maxTime, 1);
-
-        setState(prev => ({
-          ...prev,
-          elapsedTime: elapsed,
-          ringProgress: progress,
-        }));
-      }
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
 
   /**
    * Start timing for a new pattern
@@ -205,8 +179,6 @@ export function RhythmSystemProvider({ children }: RhythmSystemProviderProps) {
     setState(prev => ({
       ...prev,
       patternStartTime: now,
-      elapsedTime: 0,
-      ringProgress: 0,
       ringActive: true,
       lastJudgment: null,
     }));
@@ -277,11 +249,11 @@ export function RhythmSystemProvider({ children }: RhythmSystemProviderProps) {
   }, []);
 
   /**
-   * Get ring progress (0-1)
+   * Get pattern start time for components to calculate their own animation progress
    */
-  const getRingProgress = useCallback((): number => {
-    return state.ringProgress;
-  }, [state.ringProgress]);
+  const getPatternStartTime = useCallback((): number | null => {
+    return startTimeRef.current;
+  }, []);
 
   /**
    * Reset all rhythm stats
@@ -298,7 +270,7 @@ export function RhythmSystemProvider({ children }: RhythmSystemProviderProps) {
     resetRhythm,
     getCurrentTiming,
     getJudgmentForTime,
-    getRingProgress,
+    getPatternStartTime,
   };
 
   return (

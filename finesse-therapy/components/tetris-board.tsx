@@ -33,6 +33,7 @@ export function TetrisBoard() {
   const { getAction } = useKeyBindings();
   const { settings } = useGameSettings();
   const rhythm = useRhythmSystem();
+  const { startPattern, recordHit, resetRhythm, getCurrentTiming } = rhythm;
   const difficulty = useDifficultySystem();
   const visualEffects = useVisualEffects();
 
@@ -55,18 +56,18 @@ export function TetrisBoard() {
       const delay = timeSinceLastDrop < 150 ? 100 : 0;
 
       setTimeout(() => {
-        rhythm.startPattern();
+        startPattern();
       }, delay);
     }
     prevPieceRef.current = currentPiece;
-  }, [currentPiece, gameMode, gameOver, rhythm]);
+  }, [currentPiece, gameMode, gameOver, startPattern]);
 
   // Reset rhythm when game restarts
   useEffect(() => {
     if (gameOver) {
-      rhythm.resetRhythm();
+      resetRhythm();
     }
-  }, [gameOver, rhythm]);
+  }, [gameOver, resetRhythm]);
 
   // Track previous combo for effect triggers
   const prevComboRef = useRef(0);
@@ -91,7 +92,7 @@ export function TetrisBoard() {
   const handleActionWithRhythm = useCallback((action: string, isKeyDown: boolean) => {
     if (action === 'HARD_DROP' && isKeyDown && !gameOver && gameMode === 'LEARNING') {
       lastDropTimeRef.current = performance.now();
-      const startTime = rhythm.getCurrentTiming();
+      const startTime = getCurrentTiming();
       const comboBefore = comboBeforeDropRef.current;
 
       // Process the drop first
@@ -104,7 +105,7 @@ export function TetrisBoard() {
         const responseTime = startTime || 1000;
 
         // Record to rhythm system and get judgment
-        const judgment = rhythm.recordHit(correct);
+        const judgment = recordHit(correct);
 
         // Trigger visual effects based on judgment
         const effectX = 140;
@@ -117,7 +118,7 @@ export function TetrisBoard() {
       return; // Already called handleAction above
     }
     handleAction(action, isKeyDown);
-  }, [handleAction, gameOver, gameMode, rhythm, difficulty, visualEffects]);
+  }, [handleAction, gameOver, gameMode, getCurrentTiming, recordHit, difficulty, visualEffects]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
