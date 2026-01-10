@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useLearningProgress, MasteryGridData } from "@/hooks/use-learning-progress";
-import { MASTERY_THRESHOLD } from "@/lib/sm2";
 import { RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { Card } from "@/components/ui/card";
 
 // Piece colors matching tetromino theme
 const PIECE_COLORS: Record<string, { base: string; glow: string }> = {
@@ -22,7 +22,7 @@ const PIECES = ["Z", "S", "I", "T", "O", "L", "J"] as const;
  * Get color based on mastery level
  */
 function getMasteryColor(accuracy: number, mastered: boolean): string {
-  if (accuracy < 0) return "rgba(255,255,255,0.05)"; // Not started
+  if (accuracy < 0) return "rgba(128,128,128,0.15)"; // Not started - neutral gray
   if (mastered) return "#22c55e"; // Green - mastered
   if (accuracy >= 0.8) return "#84cc16"; // Lime
   if (accuracy >= 0.6) return "#eab308"; // Yellow
@@ -63,19 +63,19 @@ export function LearningProgress({ className }: LearningProgressProps) {
   return (
     <div className={`${className} font-mono text-xs`}>
       {/* Compact Header Stats */}
-      <div className="bg-black/40 backdrop-blur border border-white/10 rounded-lg p-3 mb-2">
+      <Card className="p-3 mb-2">
         {/* Title row */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-[10px] uppercase tracking-widest text-white/60">Learning</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Learning</span>
           </div>
           <button
             onClick={resetProgress}
-            className="p-1 hover:bg-white/10 rounded transition-colors"
+            className="p-1 hover:bg-muted rounded transition-colors"
             title="Reset progress"
           >
-            <RotateCcw className="w-3 h-3 text-white/40 hover:text-white/80" />
+            <RotateCcw className="w-3 h-3 text-muted-foreground hover:text-foreground" />
           </button>
         </div>
 
@@ -87,7 +87,7 @@ export function LearningProgress({ className }: LearningProgressProps) {
               <circle
                 cx="18" cy="18" r="15"
                 fill="none"
-                stroke="rgba(255,255,255,0.1)"
+                className="stroke-muted"
                 strokeWidth="3"
               />
               <circle
@@ -107,7 +107,7 @@ export function LearningProgress({ className }: LearningProgressProps) {
               </defs>
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm font-bold text-white">{Math.round(masteryPercent)}%</span>
+              <span className="text-sm font-bold text-foreground">{Math.round(masteryPercent)}%</span>
             </div>
           </div>
 
@@ -118,19 +118,19 @@ export function LearningProgress({ className }: LearningProgressProps) {
             <StatItem label="Session" value={sessionStats.correct} total={sessionStats.attempts} color="text-cyan-400" />
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* 3D Isometric Visualization */}
-      <div className="bg-black/40 backdrop-blur border border-white/10 rounded-lg p-3 mb-2">
+      <Card className="p-3 mb-2">
         <div
           className="flex items-center justify-between cursor-pointer mb-2"
           onClick={() => setExpanded(!expanded)}
         >
-          <span className="text-[10px] uppercase tracking-widest text-white/60">Mastery Cube</span>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Mastery Cube</span>
           {expanded ? (
-            <ChevronUp className="w-3 h-3 text-white/40" />
+            <ChevronUp className="w-3 h-3 text-muted-foreground" />
           ) : (
-            <ChevronDown className="w-3 h-3 text-white/40" />
+            <ChevronDown className="w-3 h-3 text-muted-foreground" />
           )}
         </div>
 
@@ -148,15 +148,15 @@ export function LearningProgress({ className }: LearningProgressProps) {
 
           {/* Hover tooltip - absolute positioned */}
           {hoveredPattern && (
-            <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/80 border border-white/20 rounded text-[11px] text-white text-center font-bold">
+            <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-popover border rounded text-[11px] text-foreground text-center font-bold">
               {hoveredPattern}
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Piece Legend - compact horizontal */}
-      <div className="bg-black/40 backdrop-blur border border-white/10 rounded-lg p-2">
+      <Card className="p-2">
         <div className="flex justify-between items-center">
           {PIECES.map((piece) => {
             const pieceData = masteryGrid.pieces.find(p => p.piece === piece);
@@ -176,12 +176,12 @@ export function LearningProgress({ className }: LearningProgressProps) {
                     opacity: masteredPatterns > 0 ? 1 : 0.4
                   }}
                 />
-                <span className="text-[8px] text-white/50">{masteredPatterns}/{totalPatterns}</span>
+                <span className="text-[8px] text-muted-foreground">{masteredPatterns}/{totalPatterns}</span>
               </div>
             );
           })}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -202,9 +202,9 @@ function StatItem({
 }) {
   return (
     <div className="flex justify-between items-center">
-      <span className="text-white/40 text-[10px]">{label}</span>
+      <span className="text-muted-foreground text-[10px]">{label}</span>
       <span className={`${color} font-medium`}>
-        {value}{total !== undefined && <span className="text-white/30">/{total}</span>}
+        {value}{total !== undefined && <span className="text-muted-foreground/50">/{total}</span>}
       </span>
     </div>
   );
@@ -314,10 +314,10 @@ function IsometricCube({
       })}
 
       {/* Axis labels */}
-      <text x={offsetX + 60} y={expanded ? 305 : 170} className="text-[9px]" fill="rgba(255,255,255,0.4)">
+      <text x={offsetX + 60} y={expanded ? 305 : 170} className="text-[9px] fill-muted-foreground">
         Col →
       </text>
-      <text x={offsetX - 40} y={expanded ? 285 : 155} className="text-[9px]" fill="rgba(255,255,255,0.4)">
+      <text x={offsetX - 40} y={expanded ? 285 : 155} className="text-[9px] fill-muted-foreground">
         ← Rot
       </text>
     </svg>

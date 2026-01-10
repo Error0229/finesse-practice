@@ -178,15 +178,16 @@ export function useTetrisGame() {
 
   // Refs for state to avoid stale closures in callbacks
   const gridRef = useRef(grid);
-  const currentPieceRef = useRef(currentPiece);
+  const currentPieceRef = useRef<Piece | null>(currentPiece);
   const gameOverRef = useRef(gameOver);
 
-  // Sync refs with state in effect to avoid updating refs during render
+  // Sync grid and gameOver refs with state (these are read-only refs)
+  // NOTE: currentPieceRef is managed manually - do NOT sync it here
+  // because DAS movements update the ref directly without state updates
   useEffect(() => {
     gridRef.current = grid;
-    currentPieceRef.current = currentPiece;
     gameOverRef.current = gameOver;
-  });
+  }, [grid, gameOver]);
 
   const getNextPiece = useCallback(() => {
     if (bagRef.current.length === 0) {
@@ -319,23 +320,26 @@ export function useTetrisGame() {
 
   // Reset piece to starting position (for retry on fault)
   const resetPiece = useCallback((resetCombo = true) => {
-    if (!currentPiece) return;
+    const piece = currentPieceRef.current;
+    if (!piece) return;
 
-    setCurrentPiece({
-      type: currentPiece.type,
+    const resetPiece = {
+      type: piece.type,
       rotation: 0,
       x: STARTING_COL,
-      y: currentPiece.type === 'I' ? -1 : 0
-    });
+      y: piece.type === 'I' ? -1 : 0
+    };
+    // Update both ref and state
+    currentPieceRef.current = resetPiece;
+    setCurrentPiece(resetPiece);
+
     moveListRef.current = [];
     setCurrentMoves([]);
     keyCountRef.current = 0;
     leftDasRef.current = false;
     rightDasRef.current = false;
-    leftDasCounterRef.current = 0;
-    rightDasCounterRef.current = 0;
-    leftArrCounterRef.current = 0;
-    rightArrCounterRef.current = 0;
+
+    // Reset DAS timing refs
     leftHeldRef.current = false;
     rightHeldRef.current = false;
     softDropHeldRef.current = false;
@@ -344,7 +348,7 @@ export function useTetrisGame() {
     if (resetCombo) {
       setScore(prev => ({ ...prev, combo: 0 }));
     }
-  }, [currentPiece]);
+  }, []);
 
   const checkCollision = useCallback((piece: Piece, offsetX = 0, offsetY = 0, newRotation?: number): boolean => {
     const rotation = newRotation ?? piece.rotation;
@@ -370,14 +374,17 @@ export function useTetrisGame() {
   }, [grid]);
 
   const movePiece = useCallback((dx: number, dy: number): boolean => {
-    if (!currentPiece || gameOver) return false;
+    const piece = currentPieceRef.current;
+    if (!piece || gameOverRef.current) return false;
 
-    if (!checkCollision(currentPiece, dx, dy)) {
-      setCurrentPiece(prev => prev ? { ...prev, x: prev.x + dx, y: prev.y + dy } : null);
+    if (!checkCollision(piece, dx, dy)) {
+      const newPiece = { ...piece, x: piece.x + dx, y: piece.y + dy };
+      currentPieceRef.current = newPiece;
+      setCurrentPiece(newPiece);
       return true;
     }
     return false;
-  }, [currentPiece, checkCollision, gameOver]);
+  }, [checkCollision]);
 
   // Get wall kick table for a piece type
   const getKickTable = useCallback((type: TetrominoType) => {
@@ -443,27 +450,51 @@ export function useTetrisGame() {
   }, [getKickTable]);
 
   const rotate180 = useCallback(() => {
-    if (!currentPiece || gameOver) return;
+    const piece = currentPieceRef.current;
+    const currentGrid = gridRef.current;
+    if (!piece || gameOverRef.current) return;
 
     // O piece doesn't rotate meaningfully
-    if (currentPiece.type === 'O') return;
+    if (piece.type === 'O') return;
 
-    const fromRotation = currentPiece.rotation;
+    const fromRotation = piece.rotation;
     const toRotation = (fromRotation + 2) % 4;
-    const kickTable = getKickTable(currentPiece.type);
+    const kickTable = getKickTable(piece.type);
 
     // Get kick tests for 180 rotation
     const kicks = kickTable ? kickTable[fromRotation][toRotation] : [[0, 0]];
 
+    // Check collision using refs
+    const checkCollisionForRotation = (p: Piece, offsetX: number, offsetY: number, newRotation: number): boolean => {
+      const shape = TETROMINO_SHAPES[p.type][newRotation];
+      for (let y = 0; y < shape.length; y++) {
+        for (let x = 0; x < shape[y].length; x++) {
+          if (shape[y][x]) {
+            const newX = p.x + x + offsetX;
+            const newY = p.y + y + offsetY;
+            if (newX < 0 || newX >= GRID_WIDTH || newY >= GRID_HEIGHT) {
+              return true;
+            }
+            if (newY >= 0 && currentGrid[newY][newX]) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    };
+
     // Try each kick offset
     for (const [dx, dy] of kicks) {
-      if (!checkCollision(currentPiece, dx, dy, toRotation)) {
-        setCurrentPiece(prev => prev ? {
-          ...prev,
+      if (!checkCollisionForRotation(piece, dx, dy, toRotation)) {
+        const newPiece = {
+          ...piece,
           rotation: toRotation,
-          x: prev.x + dx,
-          y: prev.y + dy
-        } : null);
+          x: piece.x + dx,
+          y: piece.y + dy
+        };
+        currentPieceRef.current = newPiece;
+        setCurrentPiece(newPiece);
         keyCountRef.current++;
         // 180 rotation counts as 2 rotations for finesse (C, C or CC, CC)
         moveListRef.current.push('C');
@@ -472,17 +503,38 @@ export function useTetrisGame() {
         return;
       }
     }
-  }, [currentPiece, checkCollision, gameOver, getKickTable]);
+  }, [getKickTable]);
 
   const hardDrop = useCallback(() => {
-    if (!currentPiece || gameOver) return;
+    // Read from ref for accurate position (state may be stale from DAS movements)
+    const piece = currentPieceRef.current;
+    const currentGrid = gridRef.current;
+    if (!piece || gameOverRef.current) return;
 
+    // Calculate drop distance using refs
     let dropDistance = 0;
-    while (!checkCollision(currentPiece, 0, dropDistance + 1)) {
+    while (true) {
+      const testY = dropDistance + 1;
+      const shape = TETROMINO_SHAPES[piece.type][piece.rotation];
+      let collision = false;
+
+      for (let py = 0; py < shape.length && !collision; py++) {
+        for (let px = 0; px < shape[py].length && !collision; px++) {
+          if (shape[py][px]) {
+            const newY = piece.y + py + testY;
+            const newX = piece.x + px;
+            if (newY >= GRID_HEIGHT || (newY >= 0 && currentGrid[newY]?.[newX])) {
+              collision = true;
+            }
+          }
+        }
+      }
+
+      if (collision) break;
       dropDistance++;
     }
 
-    const finalPiece = { ...currentPiece, y: currentPiece.y + dropDistance };
+    const finalPiece = { ...piece, y: piece.y + dropDistance };
 
     // Add DROP to move list
     moveListRef.current.push('DROP');
@@ -520,7 +572,7 @@ export function useTetrisGame() {
       let movesCorrect = compareMoves(moveListRef.current, target.moves);
       if (!movesCorrect && isTwoRotationPiece && rotationMatches) {
         // Get moves for the player's actual rotation
-        const pieceIndex = PIECE_MAP[currentPiece.type];
+        const pieceIndex = PIECE_MAP[piece.type];
         const playerRotationMoves = getOptimalMoves(pieceIndex, actualColumn, finalPiece.rotation);
         movesCorrect = compareMoves(moveListRef.current, playerRotationMoves);
       }
@@ -528,7 +580,7 @@ export function useTetrisGame() {
       isCorrect = positionCorrect && movesCorrect;
     } else if (gameMode === 'FREE_STACK') {
       // In free stack, check finesse for the actual position
-      const pieceIndex = PIECE_MAP[currentPiece.type];
+      const pieceIndex = PIECE_MAP[piece.type];
       const optimalMoves = getOptimalMoves(pieceIndex, actualColumn, finalPiece.rotation);
       isCorrect = compareMoves(moveListRef.current, optimalMoves);
     }
@@ -600,7 +652,7 @@ export function useTetrisGame() {
       });
       setTimeout(() => spawnPiece(), 50);
     }
-  }, [currentPiece, checkCollision, gameOver, target, gameMode, score, spawnPiece, settings, resetPiece, learningContext]);
+  }, [target, gameMode, score, spawnPiece, settings, resetPiece, learningContext]);
 
   const hold = useCallback(() => {
     if (!currentPiece || !canHold || gameOver || gameMode !== 'FREE_STACK') return;
@@ -616,7 +668,7 @@ export function useTetrisGame() {
     setCanHold(false);
   }, [currentPiece, holdPiece, canHold, gameOver, gameMode, spawnPiece]);
 
-  // Stable movePiece for DAS loop and key handlers - uses refs to avoid dependency changes
+  // Stable movePiece for DAS loop and key handlers - uses refs only, no React state updates
   const stableMovePiece = useCallback((dx: number, dy: number): boolean => {
     const piece = currentPieceRef.current;
     const currentGrid = gridRef.current;
@@ -639,7 +691,8 @@ export function useTetrisGame() {
       }
     }
 
-    setCurrentPiece(prev => prev ? { ...prev, x: prev.x + dx, y: prev.y + dy } : null);
+    // Only update ref - canvas reads from ref directly via RAF
+    currentPieceRef.current = { ...piece, x: piece.x + dx, y: piece.y + dy };
     return true;
   }, []);
 
@@ -686,9 +739,8 @@ export function useTetrisGame() {
     setCurrentMoves([...moveListRef.current]);
   }, []);
 
-  // Move piece all the way in a direction (for instant ARR)
+  // Move piece all the way in a direction (for instant ARR) - ref only, no state
   const movePieceToWall = useCallback((direction: -1 | 1) => {
-    // Use ref to get latest piece (handles same-frame updates after hold)
     const piece = currentPieceRef.current;
     if (!piece) return;
 
@@ -716,14 +768,12 @@ export function useTetrisGame() {
       newX = testX;
     }
 
-    const newPiece = { ...piece, x: newX };
-    setCurrentPiece(newPiece);
-    currentPieceRef.current = newPiece;
+    // Only update ref - canvas reads from ref directly
+    currentPieceRef.current = { ...piece, x: newX };
   }, []);
 
-  // Move piece all the way down (for instant SDR)
+  // Move piece all the way down (for instant SDR) - ref only, no state
   const softDropToBottom = useCallback(() => {
-    // Use ref to get latest piece (handles same-frame updates after hold)
     const piece = currentPieceRef.current;
     if (!piece) return;
 
@@ -751,85 +801,116 @@ export function useTetrisGame() {
       newY = testY;
     }
 
-    const newPiece = { ...piece, y: newY };
-    setCurrentPiece(newPiece);
-    currentPieceRef.current = newPiece;
+    // Only update ref - canvas reads from ref directly
+    currentPieceRef.current = { ...piece, y: newY };
   }, []);
 
   // Track if there's an active piece (for dependency without causing re-runs on every move)
   const hasActivePiece = !!currentPiece;
 
-  // DAS update loop - simple approach: check held keys each frame and apply movement
+  // DAS timing refs (in milliseconds for precision)
+  const leftDasStartRef = useRef<number | null>(null);
+  const rightDasStartRef = useRef<number | null>(null);
+  const leftLastArrRef = useRef<number>(0);
+  const rightLastArrRef = useRef<number>(0);
+  const softDropLastRef = useRef<number>(0);
+
+  // DAS update loop using RAF for better timing precision
   useEffect(() => {
     if (gameOver || !hasActivePiece) return;
 
-    const DAS_DELAY = settings.DAS;
-    const ARR = settings.ARR;
-    const SDR = settings.SDR;
+    // Settings are in frames, convert to milliseconds (16.67ms per frame at 60fps)
+    const FRAME_MS = 1000 / 60;
+    const DAS_DELAY_MS = settings.DAS * FRAME_MS;
+    const ARR_MS = settings.ARR === -1 ? -1 : settings.ARR * FRAME_MS;
+    const SDR_MS = settings.SDR === -1 ? -1 : settings.SDR * FRAME_MS;
 
-    const interval = setInterval(() => {
+    let rafId: number;
+    let running = true;
+
+    const loop = (timestamp: number) => {
+      if (!running) return;
+
       // Left movement
       if (leftHeldRef.current) {
-        if (leftDasCounterRef.current < DAS_DELAY) {
-          leftDasCounterRef.current++;
+        if (leftDasStartRef.current === null) {
+          leftDasStartRef.current = timestamp;
         }
-        if (leftDasCounterRef.current >= DAS_DELAY) {
+        const elapsed = timestamp - leftDasStartRef.current;
+
+        if (elapsed >= DAS_DELAY_MS) {
           leftDasRef.current = true;
-          if (ARR === -1) {
-            // Instant - move to wall every frame (idempotent if already there)
+          if (ARR_MS === -1) {
+            // Instant ARR - move to wall
             movePieceToWall(-1);
-          } else if (ARR === 0) {
+          } else if (ARR_MS === 0) {
+            // 0ms ARR - move every frame
             stableMovePiece(-1, 0);
           } else {
-            leftArrCounterRef.current++;
-            if (leftArrCounterRef.current >= ARR) {
-              leftArrCounterRef.current = 0;
+            // Timed ARR
+            if (timestamp - leftLastArrRef.current >= ARR_MS) {
+              leftLastArrRef.current = timestamp;
               stableMovePiece(-1, 0);
             }
           }
         }
+      } else {
+        leftDasStartRef.current = null;
       }
 
       // Right movement
       if (rightHeldRef.current) {
-        if (rightDasCounterRef.current < DAS_DELAY) {
-          rightDasCounterRef.current++;
+        if (rightDasStartRef.current === null) {
+          rightDasStartRef.current = timestamp;
         }
-        if (rightDasCounterRef.current >= DAS_DELAY) {
+        const elapsed = timestamp - rightDasStartRef.current;
+
+        if (elapsed >= DAS_DELAY_MS) {
           rightDasRef.current = true;
-          if (ARR === -1) {
-            // Instant - move to wall every frame (idempotent if already there)
+          if (ARR_MS === -1) {
+            // Instant ARR - move to wall
             movePieceToWall(1);
-          } else if (ARR === 0) {
+          } else if (ARR_MS === 0) {
+            // 0ms ARR - move every frame
             stableMovePiece(1, 0);
           } else {
-            rightArrCounterRef.current++;
-            if (rightArrCounterRef.current >= ARR) {
-              rightArrCounterRef.current = 0;
+            // Timed ARR
+            if (timestamp - rightLastArrRef.current >= ARR_MS) {
+              rightLastArrRef.current = timestamp;
               stableMovePiece(1, 0);
             }
           }
         }
+      } else {
+        rightDasStartRef.current = null;
       }
 
       // Soft drop
       if (softDropHeldRef.current) {
-        if (SDR === -1) {
-          // Instant - drop to bottom every frame (idempotent if already there)
+        if (SDR_MS === -1) {
+          // Instant - drop to bottom
           softDropToBottom();
-        } else if (SDR === 0) {
+        } else if (SDR_MS === 0) {
+          // 0ms SDR - move every frame
           stableMovePiece(0, 1);
         } else {
-          softDropCounterRef.current++;
-          if (softDropCounterRef.current >= SDR) {
-            softDropCounterRef.current = 0;
+          // Timed SDR
+          if (timestamp - softDropLastRef.current >= SDR_MS) {
+            softDropLastRef.current = timestamp;
             stableMovePiece(0, 1);
           }
         }
       }
-    }, 16); // ~60fps
 
-    return () => clearInterval(interval);
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(rafId);
+    };
   }, [gameOver, hasActivePiece, stableMovePiece, movePieceToWall, softDropToBottom, settings]);
 
   const startGame = useCallback(() => {
@@ -917,6 +998,69 @@ export function useTetrisGame() {
     }
   }, [handleLeftPress, handleLeftRelease, handleRightPress, handleRightRelease, movePiece, hardDrop, rotatePiece, rotate180, hold, gameOver, startGame, cycleMode]);
 
+  // Validate if current piece position/rotation/moves would be correct (without dropping)
+  const validateCurrentPlacement = useCallback((): boolean => {
+    const piece = currentPieceRef.current;
+    const currentGrid = gridRef.current;
+    if (!piece || gameMode === 'FREE_STACK') return true;
+    if (!target) return true;
+
+    // Calculate where piece would land using refs
+    let dropDistance = 0;
+    while (true) {
+      const testY = dropDistance + 1;
+      const shape = TETROMINO_SHAPES[piece.type][piece.rotation];
+      let collision = false;
+
+      for (let py = 0; py < shape.length && !collision; py++) {
+        for (let px = 0; px < shape[py].length && !collision; px++) {
+          if (shape[py][px]) {
+            const newY = piece.y + py + testY;
+            const newX = piece.x + px;
+            if (newY >= GRID_HEIGHT || (newY >= 0 && currentGrid[newY]?.[newX])) {
+              collision = true;
+            }
+          }
+        }
+      }
+
+      if (collision) break;
+      dropDistance++;
+    }
+    const finalPiece = { ...piece, y: piece.y + dropDistance };
+
+    // Calculate actual column (leftmost filled cell)
+    const shape = TETROMINO_SHAPES[finalPiece.type][finalPiece.rotation];
+    let leftmostFilledCol = shape[0].length;
+    for (let y = 0; y < shape.length; y++) {
+      for (let x = 0; x < shape[y].length; x++) {
+        if (shape[y][x] && x < leftmostFilledCol) {
+          leftmostFilledCol = x;
+        }
+      }
+    }
+    const actualColumn = finalPiece.x + leftmostFilledCol;
+
+    // Check position and rotation
+    const pieceType = finalPiece.type;
+    const isTwoRotationPiece = pieceType === 'Z' || pieceType === 'S' || pieceType === 'I';
+    const rotationMatches = isTwoRotationPiece
+      ? (finalPiece.rotation % 2) === (target.rotation % 2)
+      : finalPiece.rotation === target.rotation;
+    const positionCorrect = actualColumn === target.column && rotationMatches;
+
+    // Check moves (include DROP in the check since that's what we're about to do)
+    const movesWithDrop: FinesseMove[] = [...moveListRef.current, 'DROP'];
+    let movesCorrect = compareMoves(movesWithDrop, target.moves);
+    if (!movesCorrect && isTwoRotationPiece && rotationMatches) {
+      const pieceIndex = PIECE_MAP[piece.type];
+      const playerRotationMoves = getOptimalMoves(pieceIndex, actualColumn, finalPiece.rotation);
+      movesCorrect = compareMoves(movesWithDrop, playerRotationMoves);
+    }
+
+    return positionCorrect && movesCorrect;
+  }, [target, gameMode]);
+
   // Get target piece for rendering
   const getTargetPiece = useCallback((): Piece | null => {
     if (!target || !currentPiece || gameMode === 'FREE_STACK') return null;
@@ -961,6 +1105,7 @@ export function useTetrisGame() {
   return {
     grid,
     currentPiece,
+    currentPieceRef, // Export ref for direct canvas access (performance optimization)
     nextQueue,
     holdPiece,
     canHold,
@@ -972,6 +1117,8 @@ export function useTetrisGame() {
     startGame,
     handleAction,
     getTargetPiece,
+    validateCurrentPlacement,
+    resetPiece,
     cycleMode,
     setMode,
   };

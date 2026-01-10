@@ -297,82 +297,62 @@ export function VisualEffectsProvider({ children }: VisualEffectsProviderProps) 
 
   /**
    * Trigger judgment effect based on hit quality
+   * Simplified effects - removed distracting border glows
    */
   const triggerJudgmentEffect = useCallback((judgment: HitJudgment, x: number, y: number) => {
     const color = JUDGMENT_COLORS[judgment];
 
     switch (judgment) {
       case 'PERFECT':
-        // Big burst of golden particles + screen flash + ring expansion
-        spawnParticles('BURST', 24, x, y, color);
-        spawnParticles('STAR', 8, x, y, color);
-        spawnParticles('RING', 1, x, y, color);
-        addEffect('SCREEN_FLASH', color, 100, 0.2);
-        addEffect('BORDER_GLOW', color, 400, 1);
+        // Burst of golden particles (no border glow)
+        spawnParticles('BURST', 16, x, y, color);
+        spawnParticles('STAR', 4, x, y, color);
         break;
 
       case 'GREAT':
         // Medium burst of green particles
-        spawnParticles('BURST', 16, x, y, color);
-        spawnParticles('STAR', 4, x, y, color);
-        addEffect('SCREEN_FLASH', color, 80, 0.1);
+        spawnParticles('BURST', 10, x, y, color);
         break;
 
       case 'GOOD':
         // Small burst of blue sparks
-        spawnParticles('SPARK', 12, x, y, color);
+        spawnParticles('SPARK', 8, x, y, color);
         break;
 
       case 'MISS':
-        // Red flash and shake
-        addEffect('SCREEN_FLASH', color, 150, 0.25);
-        addEffect('SCREEN_SHAKE', color, 200, 8);
+      case 'TOO_SLOW':
+        // Minimal feedback - just a small shake, no red flash
+        addEffect('SCREEN_SHAKE', color, 100, 3);
         break;
     }
   }, [spawnParticles, addEffect]);
 
   /**
-   * Trigger combo milestone effects
+   * Trigger combo milestone effects - simplified
    */
   const triggerComboEffect = useCallback((combo: number) => {
-    // Flash effect on every combo hit
+    // Subtle flash effect on combo
     setState(prev => ({ ...prev, comboFlash: true }));
     setTimeout(() => {
       setState(prev => ({ ...prev, comboFlash: false }));
     }, 100);
 
-    // Milestone effects at specific combo counts
-    if (combo === 10) {
-      spawnParticles('STAR', 12, 140, 280, '#ffd700');
-      addEffect('BORDER_GLOW', '#ffd700', 500, 0.8);
-    } else if (combo === 25) {
-      spawnParticles('BURST', 20, 140, 280, '#ff6b6b');
-      spawnParticles('CONFETTI', 30, 140, 100, '#ff6b6b');
-      addEffect('SCREEN_FLASH', '#ff6b6b', 200, 0.2);
-      addEffect('BORDER_GLOW', '#ff6b6b', 800, 1);
+    // Only celebrate big milestones with minimal effects
+    if (combo === 25) {
+      spawnParticles('STAR', 8, 140, 280, '#ffd700');
     } else if (combo === 50) {
-      spawnParticles('BURST', 30, 140, 280, '#a855f7');
-      spawnParticles('CONFETTI', 50, 140, 50, '#a855f7');
-      spawnParticles('STAR', 20, 140, 280, '#ffd700');
-      addEffect('SCREEN_SHAKE', '#a855f7', 300, 6);
-      addEffect('BORDER_GLOW', '#a855f7', 1000, 1);
+      spawnParticles('STAR', 12, 140, 280, '#ffd700');
     } else if (combo === 100) {
-      // LEGENDARY!
-      spawnParticles('BURST', 50, 140, 280, '#ffd700');
-      spawnParticles('CONFETTI', 100, 140, 0, '#ffd700');
-      spawnParticles('STAR', 30, 140, 280, '#ffd700');
-      spawnParticles('RING', 3, 140, 280, '#ffd700');
-      addEffect('SCREEN_FLASH', '#ffd700', 300, 0.4);
-      addEffect('SCREEN_SHAKE', '#ffd700', 500, 10);
-      addEffect('BORDER_GLOW', '#ffd700', 2000, 1);
+      spawnParticles('STAR', 16, 140, 280, '#ffd700');
+      spawnParticles('CONFETTI', 20, 140, 100, '#ffd700');
     }
-  }, [spawnParticles, addEffect]);
+  }, [spawnParticles]);
 
   /**
-   * Update streak fire effect
+   * Update streak effect - simplified, no border fire
    */
   const triggerStreakEffect = useCallback((streak: number) => {
-    // Calculate streak level (0-4)
+    // Calculate streak level (0-4) but don't show fire effects
     let level = 0;
     if (streak >= 50) level = 4;
     else if (streak >= 25) level = 3;
@@ -380,13 +360,8 @@ export function VisualEffectsProvider({ children }: VisualEffectsProviderProps) 
     else if (streak >= 5) level = 1;
 
     setState(prev => ({ ...prev, streakLevel: level }));
-
-    // Fire border effect for high streaks
-    if (level >= 2) {
-      const colors = ['#22c55e', '#eab308', '#f97316', '#ef4444', '#a855f7'];
-      addEffect('STREAK_FIRE', colors[level], 1000, level * 0.25);
-    }
-  }, [addEffect]);
+    // No fire border effects - too distracting
+  }, []);
 
   /**
    * Trigger milestone celebration

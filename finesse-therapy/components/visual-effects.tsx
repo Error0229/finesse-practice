@@ -121,20 +121,17 @@ function ParticleShape({ particle }: { particle: Particle }) {
 
 /**
  * Screen effects overlay (flash, shake container)
+ * Simplified - removed border glow effects that looked like miss indicators
  */
 export function ScreenEffects({ children }: { children: React.ReactNode }) {
   const { state } = useVisualEffects();
-  const { activeEffects, screenShake, borderGlow, streakLevel } = state;
+  const { activeEffects, screenShake } = state;
 
   // Find flash effect
   const flashEffect = activeEffects.find(e => e.type === 'SCREEN_FLASH');
   const flashOpacity = flashEffect
     ? flashEffect.intensity * (1 - (performance.now() - flashEffect.startTime) / flashEffect.duration)
     : 0;
-
-  // Streak fire colors
-  const streakColors = ['transparent', '#22c55e', '#eab308', '#f97316', '#ef4444'];
-  const streakColor = streakColors[streakLevel] || 'transparent';
 
   return (
     <div
@@ -143,32 +140,16 @@ export function ScreenEffects({ children }: { children: React.ReactNode }) {
         transform: `translate(${screenShake.x}px, ${screenShake.y}px)`,
       }}
     >
-      {/* Border glow effect */}
-      {(borderGlow.intensity > 0 || streakLevel > 0) && (
-        <div
-          className="absolute inset-0 rounded-lg pointer-events-none z-10 transition-all duration-200"
-          style={{
-            boxShadow: borderGlow.intensity > 0
-              ? `inset 0 0 ${20 * borderGlow.intensity}px ${borderGlow.color},
-                 0 0 ${30 * borderGlow.intensity}px ${borderGlow.color}`
-              : streakLevel > 1
-                ? `inset 0 0 ${10 * streakLevel}px ${streakColor},
-                   0 0 ${15 * streakLevel}px ${streakColor}`
-                : 'none',
-          }}
-        />
-      )}
-
       {/* Content */}
       {children}
 
-      {/* Flash overlay */}
+      {/* Flash overlay - very subtle */}
       {flashOpacity > 0 && (
         <div
           className="absolute inset-0 pointer-events-none z-20 rounded-lg animate-screen-flash"
           style={{
             backgroundColor: flashEffect?.color || 'white',
-            opacity: flashOpacity,
+            opacity: flashOpacity * 0.3, // Reduced opacity
           }}
         />
       )}
@@ -177,45 +158,10 @@ export function ScreenEffects({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Streak fire border effect
+ * Streak fire border effect - disabled to reduce visual noise
  */
 export function StreakFireBorder() {
-  const { state } = useVisualEffects();
-  const { streakLevel } = state;
-
-  if (streakLevel < 2) return null;
-
-  const colors = ['', '', '#22c55e', '#f97316', '#ef4444'];
-  const color = colors[streakLevel];
-
-  return (
-    <div
-      className="absolute inset-0 pointer-events-none z-5 rounded-lg"
-      style={{
-        background: `linear-gradient(180deg, ${color}20 0%, transparent 30%, transparent 70%, ${color}20 100%)`,
-        animation: 'fire-flicker 0.5s ease-in-out infinite alternate',
-      }}
-    >
-      {/* Animated fire particles at bottom */}
-      <div className="absolute bottom-0 left-0 right-0 h-8 overflow-hidden">
-        {[...Array(streakLevel * 3)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute bottom-0 rounded-full animate-fire-rise"
-            style={{
-              left: `${10 + (i * 20) + Math.random() * 10}%`,
-              width: `${4 + Math.random() * 4}px`,
-              height: `${8 + Math.random() * 8}px`,
-              backgroundColor: color,
-              opacity: 0.6 + Math.random() * 0.4,
-              animationDelay: `${Math.random() * 0.5}s`,
-              animationDuration: `${0.5 + Math.random() * 0.3}s`,
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
+  return null;
 }
 
 /**

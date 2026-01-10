@@ -2,6 +2,7 @@
 
 import { useRhythmSystem, JUDGMENT_COLORS } from '@/hooks/use-rhythm-system';
 import { useDifficultySystem, DIFFICULTY_TIERS } from '@/hooks/use-difficulty-system';
+import { Card } from "@/components/ui/card";
 
 /**
  * Combined compact gamification stats panel
@@ -32,7 +33,7 @@ export function GamificationPanel() {
   const totalJudgments = perfectCount + greatCount + goodCount + missCount;
 
   return (
-    <div className="bg-black/50 backdrop-blur border border-white/10 rounded-lg p-2.5 font-mono text-xs">
+    <Card className="p-2.5 font-mono text-xs">
       {/* Score + Difficulty Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -45,7 +46,7 @@ export function GamificationPanel() {
           >
             {tierSettings.name}
           </div>
-          <span className="text-white/40 text-[10px]">Lv.{currentDifficulty}</span>
+          <span className="text-muted-foreground text-[10px]">Lv.{currentDifficulty}</span>
         </div>
         {isInFlow && (
           <div className="flex items-center gap-1 text-yellow-400">
@@ -56,8 +57,8 @@ export function GamificationPanel() {
       </div>
 
       {/* Score display */}
-      <div className="text-center py-2 mb-2 bg-white/5 rounded">
-        <div className="text-xl font-black text-white" style={{ textShadow: '0 0 8px rgba(255,255,255,0.3)' }}>
+      <div className="text-center py-2 mb-2 bg-muted/50 rounded">
+        <div className="text-xl font-black text-foreground">
           {totalScore.toLocaleString()}
         </div>
         <div className="flex items-center justify-center gap-2 mt-1">
@@ -93,8 +94,8 @@ export function GamificationPanel() {
       </div>
 
       {/* Difficulty bar */}
-      <div className="mt-2 pt-2 border-t border-white/10">
-        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+      <div className="mt-2 pt-2 border-t">
+        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
           <div
             className="h-full transition-all duration-500"
             style={{
@@ -104,7 +105,7 @@ export function GamificationPanel() {
           />
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -131,8 +132,8 @@ function MiniBar({ label, value, format }: { label: string; value: number; forma
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-white/40 text-[10px] w-14">{label}</span>
-      <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+      <span className="text-muted-foreground text-[10px] w-14">{label}</span>
+      <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
         <div
           className="h-full transition-all duration-300"
           style={{ width: `${value * 100}%`, backgroundColor: getColor() }}

@@ -4,7 +4,7 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { GameSettings } from "@/components/game-settings";
 import { TetrisBoard } from "@/components/tetris-board";
 import { LearningProgress } from "@/components/learning-progress";
-import { GamificationPanel, StatsStrip } from "@/components/gamification-panel";
+import { GamificationPanel } from "@/components/gamification-panel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,10 +48,8 @@ export default function Page() {
           <h1 className="text-xl font-bold tracking-tight">
             Finesse <span className="text-primary">Therapy</span>
           </h1>
-          {game.renderFlowIndicator()}
         </div>
         <div className="flex items-center gap-2">
-          {game.renderDifficultyIndicator()}
           <Button
             variant="outline"
             size="sm"
@@ -108,17 +106,20 @@ export default function Page() {
             </Card>
           )}
 
-          <Card className="p-2">
-            <div className="text-xs font-bold mb-1.5 text-muted-foreground">STATS</div>
-            <div className="space-y-1 text-[11px]">
-              <StatRow label="Combo" value={game.score.combo} highlight={game.score.combo > 0} />
-              <StatRow label="Best" value={game.score.topCombo} />
-              <StatRow label="Pieces" value={game.score.total} />
-              <StatRow label="Correct" value={game.score.correct} />
-              <StatRow label="Finesse" value={`${finessePercent}%`} highlight />
-              <StatRow label="KPP" value={game.score.kpp.toFixed(2)} />
-            </div>
-          </Card>
+          {/* STATS panel - hide in Learning Mode */}
+          {game.gameMode !== "LEARNING" && (
+            <Card className="p-2">
+              <div className="text-xs font-bold mb-1.5 text-muted-foreground">STATS</div>
+              <div className="space-y-1 text-[11px]">
+                <StatRow label="Combo" value={game.score.combo} highlight={game.score.combo > 0} />
+                <StatRow label="Best" value={game.score.topCombo} />
+                <StatRow label="Pieces" value={game.score.total} />
+                <StatRow label="Correct" value={game.score.correct} />
+                <StatRow label="Finesse" value={`${finessePercent}%`} highlight />
+                <StatRow label="KPP" value={game.score.kpp.toFixed(2)} />
+              </div>
+            </Card>
+          )}
 
           {/* Gamification Panel - Learning Mode only */}
           {game.gameMode === "LEARNING" && <GamificationPanel />}
@@ -167,12 +168,6 @@ export default function Page() {
             </Button>
           </div>
 
-          {/* Stats strip below buttons - Learning mode only */}
-          {game.gameMode === "LEARNING" && !game.gameOver && (
-            <div className="mt-1">
-              <StatsStrip />
-            </div>
-          )}
         </div>
 
         {/* Right Panel - Target + Input + Next */}
@@ -197,28 +192,31 @@ export default function Page() {
             </div>
           </Card>
 
-          <Card className="p-2">
-            <div className="text-xs font-bold mb-1.5 text-muted-foreground">NEXT</div>
-            <div className="space-y-1">
-              {game.nextQueue.slice(0, 5).map((piece, i) => (
-                <div
-                  key={i}
-                  className="h-8 border rounded flex items-center justify-center"
-                  style={{ opacity: 1 - i * 0.15 }}
-                >
-                  {game.renderPiecePreview(piece, true)}
-                </div>
-              ))}
-            </div>
-          </Card>
+          {/* Hide NEXT panel in Learning Mode */}
+          {game.gameMode !== "LEARNING" && (
+            <Card className="p-2">
+              <div className="text-xs font-bold mb-1.5 text-muted-foreground">NEXT</div>
+              <div className="space-y-1">
+                {game.nextQueue.slice(0, 5).map((piece, i) => (
+                  <div
+                    key={i}
+                    className="h-8 border rounded flex items-center justify-center"
+                    style={{ opacity: 1 - i * 0.15 }}
+                  >
+                    {game.renderPiecePreview(piece, true)}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+          {/* Far Right - Learning Progress (only in Learning mode) */}
+          {game.gameMode === "LEARNING" && (
+            // <div className="w-44 shrink-0">
+              <LearningProgress />
+            // </div>
+          )}
         </div>
 
-        {/* Far Right - Learning Progress (only in Learning mode) */}
-        {game.gameMode === "LEARNING" && (
-          <div className="w-44 shrink-0">
-            <LearningProgress />
-          </div>
-        )}
       </div>
     </div>
   );

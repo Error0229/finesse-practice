@@ -3,7 +3,7 @@
 import { useTetrisGame, GameMode } from "@/hooks/use-tetris-game";
 import { useKeyBindings } from "@/hooks/use-key-bindings";
 import { useGameSettings } from "@/hooks/use-game-settings";
-import { useRhythmSystem, HitJudgment } from "@/hooks/use-rhythm-system";
+import { useRhythmSystem, HitJudgment, TIMING_THRESHOLDS } from "@/hooks/use-rhythm-system";
 import { useDifficultySystem } from "@/hooks/use-difficulty-system";
 import { useVisualEffects } from "@/hooks/use-visual-effects";
 import { TETROMINO_SHAPES, TetrominoType } from "@/lib/types";
@@ -29,37 +29,31 @@ const MODE_NAMES: Record<GameMode, string> = {
 
 export function TetrisBoard() {
   const game = useTetrisGame();
-  const { grid, currentPiece, nextQueue, holdPiece, canHold, score, gameOver, gameMode, target, currentMoves, startGame, handleAction, getTargetPiece } = game;
+  const { grid, currentPiece, currentPieceRef, nextQueue, holdPiece, canHold, score, gameOver, gameMode, target, currentMoves, startGame, handleAction, getTargetPiece, validateCurrentPlacement, resetPiece } = game;
   const { getAction } = useKeyBindings();
   const { settings } = useGameSettings();
   const rhythm = useRhythmSystem();
-  const { startPattern, recordHit, resetRhythm, getCurrentTiming } = rhythm;
+  const { startPattern, recordHit, resetRhythm, getCurrentTiming, pauseTimer, resumeTimer } = rhythm;
   const difficulty = useDifficultySystem();
   const visualEffects = useVisualEffects();
 
   // Track piece changes to start rhythm timing
-  const prevPieceRef = useRef<typeof currentPiece>(null);
   const lastDropTimeRef = useRef(0);
   const comboBeforeDropRef = useRef(0);
   const currentScoreRef = useRef(score);
+  const gameStartedRef = useRef(false);
 
-  // Start rhythm timing when a new piece spawns
+  // Start rhythm timing only on game start (first piece)
+  // Subsequent pieces start timing after recordHit in handleActionWithRhythm
   useEffect(() => {
-    // Detect new piece spawn - compare by reference, not just type
-    // This handles same piece type appearing twice in a row
-    const pieceChanged = currentPiece !== prevPieceRef.current;
-
-    if (currentPiece && pieceChanged && gameMode === 'LEARNING' && !gameOver) {
-      // Delay must be > 60ms to ensure recordHit completes first
-      // recordHit is called after 60ms in handleActionWithRhythm
-      const timeSinceLastDrop = performance.now() - lastDropTimeRef.current;
-      const delay = timeSinceLastDrop < 150 ? 100 : 0;
-
-      setTimeout(() => {
-        startPattern();
-      }, delay);
+    if (currentPiece && gameMode === 'LEARNING' && !gameOver && !gameStartedRef.current) {
+      gameStartedRef.current = true;
+      startPattern();
     }
-    prevPieceRef.current = currentPiece;
+    // Reset flag when game ends so next game can start fresh
+    if (gameOver) {
+      gameStartedRef.current = false;
+    }
   }, [currentPiece, gameMode, gameOver, startPattern]);
 
   // Reset rhythm when game restarts
@@ -68,6 +62,27 @@ export function TetrisBoard() {
       resetRhythm();
     }
   }, [gameOver, resetRhythm]);
+
+  // Pause timer when window loses focus, resume when it gains focus
+  useEffect(() => {
+    if (gameMode !== 'LEARNING') return;
+
+    const handleBlur = () => {
+      pauseTimer();
+    };
+
+    const handleFocus = () => {
+      resumeTimer();
+    };
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [gameMode, pauseTimer, resumeTimer]);
 
   // Track previous combo for effect triggers
   const prevComboRef = useRef(0);
@@ -88,37 +103,88 @@ export function TetrisBoard() {
     comboBeforeDropRef.current = score.combo;
   }, [score]);
 
+  // Auto-trigger TOO_SLOW when timing expires (no key press needed)
+  const { ringActive, patternStartTime, isPaused } = rhythm.state;
+  useEffect(() => {
+    // Only run when timing is active and not paused
+    if (gameMode !== 'LEARNING' || gameOver || !ringActive || !patternStartTime || isPaused) {
+      return;
+    }
+
+    // Calculate how long until timeout based on current elapsed time
+    const currentElapsed = getCurrentTiming();
+    const timeUntilTimeout = TIMING_THRESHOLDS.GOOD - currentElapsed + 50; // +50ms buffer
+
+    if (timeUntilTimeout <= 0) {
+      // Already timed out
+      const judgment = recordHit(false, 'timeout');
+      visualEffects.triggerJudgmentEffect(judgment, 140, 280);
+      difficulty.recordAttempt(false, currentElapsed);
+      resetPiece(false);
+      startPattern();
+      return;
+    }
+
+    // Schedule timeout trigger
+    const timeoutId = setTimeout(() => {
+      const currentTiming = getCurrentTiming();
+      if (currentTiming > TIMING_THRESHOLDS.GOOD) {
+        const judgment = recordHit(false, 'timeout');
+        visualEffects.triggerJudgmentEffect(judgment, 140, 280);
+        difficulty.recordAttempt(false, currentTiming);
+        resetPiece(false);
+        startPattern();
+      }
+    }, timeUntilTimeout);
+
+    return () => clearTimeout(timeoutId);
+  }, [gameMode, gameOver, ringActive, patternStartTime, isPaused, getCurrentTiming, recordHit, visualEffects, difficulty, resetPiece, startPattern]);
+
   // Wrap handleAction to record rhythm hits and difficulty on hard drop
   const handleActionWithRhythm = useCallback((action: string, isKeyDown: boolean) => {
     if (action === 'HARD_DROP' && isKeyDown && !gameOver && gameMode === 'LEARNING') {
-      lastDropTimeRef.current = performance.now();
-      const startTime = getCurrentTiming();
-      const comboBefore = comboBeforeDropRef.current;
+      const currentTiming = getCurrentTiming();
+      const effectX = 140;
+      const effectY = 280;
 
-      // Process the drop first
+      // 1. Check if placement would be correct BEFORE dropping
+      const wouldBeCorrect = validateCurrentPlacement();
+
+      if (!wouldBeCorrect) {
+        // MISS takes priority - wrong placement/finesse (even if also too slow)
+        const judgment = recordHit(false, 'wrong');
+        visualEffects.triggerJudgmentEffect(judgment, effectX, effectY);
+        difficulty.recordAttempt(false, currentTiming);
+        resetPiece(false); // Reset piece position for retry
+        startPattern();
+        return;
+      }
+
+      // 2. Placement is correct - check timing
+      if (currentTiming > TIMING_THRESHOLDS.GOOD) {
+        // TOO_SLOW - correct placement but took too long
+        const judgment = recordHit(false, 'timeout');
+        visualEffects.triggerJudgmentEffect(judgment, effectX, effectY);
+        difficulty.recordAttempt(false, currentTiming);
+        resetPiece(false); // Reset piece position for retry
+        startPattern();
+        return;
+      }
+
+      // 3. Placement is correct and within time - proceed with drop
       handleAction(action, isKeyDown);
 
-      // Defer recording to after the state updates
-      setTimeout(() => {
-        // Check if combo increased (correct placement) using ref for latest value
-        const correct = currentScoreRef.current.combo > comboBefore;
-        const responseTime = startTime || 1000;
+      // Record the correct hit with timing-based judgment
+      const judgment = recordHit(true);
+      visualEffects.triggerJudgmentEffect(judgment, effectX, effectY);
+      difficulty.recordAttempt(true, currentTiming);
 
-        // Record to rhythm system and get judgment
-        const judgment = recordHit(correct);
-
-        // Trigger visual effects based on judgment
-        const effectX = 140;
-        const effectY = 280;
-        visualEffects.triggerJudgmentEffect(judgment, effectX, effectY);
-
-        // Record to difficulty system
-        difficulty.recordAttempt(correct, responseTime);
-      }, 60);
-      return; // Already called handleAction above
+      // Start timing for next piece
+      startPattern();
+      return;
     }
     handleAction(action, isKeyDown);
-  }, [handleAction, gameOver, gameMode, getCurrentTiming, recordHit, difficulty, visualEffects]);
+  }, [handleAction, gameOver, gameMode, getCurrentTiming, recordHit, difficulty, visualEffects, startPattern, validateCurrentPlacement, resetPiece]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -156,7 +222,7 @@ export function TetrisBoard() {
         <div className="relative">
           <TetrisCanvas
             grid={grid}
-            currentPiece={currentPiece}
+            currentPieceRef={currentPieceRef}
             targetPiece={targetPiece}
             showGhost={settings.showGhost}
             gameMode={gameMode}

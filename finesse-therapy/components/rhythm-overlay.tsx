@@ -35,10 +35,10 @@ export function TimingRing({ targetX, targetY, cellSize, active }: RhythmOverlay
     }
 
     const getColor = (progress: number) => {
-      if (progress < 0.2) return '#ffd700';
-      if (progress < 0.4) return '#22c55e';
-      if (progress < 0.75) return '#3b82f6';
-      return '#ef4444';
+      if (progress < 0.2) return '#ffd700';  // PERFECT - gold
+      if (progress < 0.4) return '#22c55e';  // GREAT - green
+      if (progress < 0.75) return '#3b82f6'; // GOOD - blue
+      return '#f97316';                      // TOO SLOW - orange
     };
 
     const animate = () => {
@@ -128,30 +128,48 @@ export function JudgmentDisplay() {
   const { state } = useRhythmSystem();
   const { lastJudgment, judgmentTimestamp, currentMultiplier, rhythmCombo } = state;
   const [visible, setVisible] = useState(false);
+  const [fading, setFading] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
 
   useEffect(() => {
     if (lastJudgment && judgmentTimestamp) {
       setVisible(true);
+      setFading(false);
       setAnimationKey(prev => prev + 1);
 
-      const timer = setTimeout(() => {
-        setVisible(false);
-      }, 800);
+      // Start fadeout after display time
+      const fadeTimer = setTimeout(() => {
+        setFading(true);
+      }, 600);
 
-      return () => clearTimeout(timer);
+      // Hide completely after fadeout completes
+      const hideTimer = setTimeout(() => {
+        setVisible(false);
+        setFading(false);
+      }, 900);
+
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(hideTimer);
+      };
     }
   }, [lastJudgment, judgmentTimestamp]);
 
   if (!visible || !lastJudgment) return null;
 
   const color = JUDGMENT_COLORS[lastJudgment];
+  // Display "TOO SLOW" with a space for readability
+  const displayText = lastJudgment === 'TOO_SLOW' ? 'TOO SLOW' : lastJudgment;
   const scale = lastJudgment === 'PERFECT' ? 1.2 : lastJudgment === 'GREAT' ? 1.1 : 1;
 
   return (
     <div
       key={animationKey}
       className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20"
+      style={{
+        opacity: fading ? 0 : 1,
+        transition: 'opacity 300ms ease-out',
+      }}
     >
       {/* Main judgment text */}
       <div
@@ -163,7 +181,7 @@ export function JudgmentDisplay() {
           transform: `scale(${scale})`,
         }}
       >
-        {lastJudgment}!
+        {displayText}!
       </div>
 
       {/* Combo display */}
@@ -205,6 +223,7 @@ export function RhythmStats() {
     perfectCount,
     greatCount,
     goodCount,
+    tooSlowCount,
     missCount,
     rhythmCombo,
     maxRhythmCombo,
@@ -212,7 +231,7 @@ export function RhythmStats() {
     estimatedBPM,
   } = state;
 
-  const totalJudgments = perfectCount + greatCount + goodCount + missCount;
+  const totalJudgments = perfectCount + greatCount + goodCount + tooSlowCount + missCount;
   const accuracy = totalJudgments > 0
     ? ((perfectCount * 100 + greatCount * 75 + goodCount * 50) / (totalJudgments * 100) * 100)
     : 0;
@@ -237,6 +256,7 @@ export function RhythmStats() {
         <JudgmentStat label="PERFECT" count={perfectCount} color={JUDGMENT_COLORS.PERFECT} />
         <JudgmentStat label="GREAT" count={greatCount} color={JUDGMENT_COLORS.GREAT} />
         <JudgmentStat label="GOOD" count={goodCount} color={JUDGMENT_COLORS.GOOD} />
+        <JudgmentStat label="SLOW" count={tooSlowCount} color={JUDGMENT_COLORS.TOO_SLOW} />
         <JudgmentStat label="MISS" count={missCount} color={JUDGMENT_COLORS.MISS} />
       </div>
 
@@ -341,16 +361,16 @@ export function TimingBar() {
 
   if (!ringActive) return null;
 
-  // Zones
+  // Zones - last zone is SLOW (timing expired) not MISS (wrong move)
   const zones = [
     { name: 'PERFECT', end: 0.2, color: JUDGMENT_COLORS.PERFECT },
     { name: 'GREAT', end: 0.4, color: JUDGMENT_COLORS.GREAT },
     { name: 'GOOD', end: 0.75, color: JUDGMENT_COLORS.GOOD },
-    { name: 'MISS', end: 1.0, color: JUDGMENT_COLORS.MISS },
+    { name: 'SLOW', end: 1.0, color: JUDGMENT_COLORS.TOO_SLOW },
   ];
 
   return (
-    <div className="relative h-3 bg-black/40 rounded-full overflow-hidden border border-white/10">
+    <div className="relative h-3 bg-muted rounded-full overflow-hidden border">
       {/* Zone backgrounds */}
       {zones.map((zone, i) => {
         const start = i === 0 ? 0 : zones[i - 1].end;

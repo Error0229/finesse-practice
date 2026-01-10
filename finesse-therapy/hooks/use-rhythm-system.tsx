@@ -4,16 +4,19 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect } f
 
 /**
  * Hit judgment types - from best to worst
+ * TOO_SLOW = timing expired (speed issue)
+ * MISS = wrong placement/finesse (accuracy issue)
  */
-export type HitJudgment = 'PERFECT' | 'GREAT' | 'GOOD' | 'MISS';
+export type HitJudgment = 'PERFECT' | 'GREAT' | 'GOOD' | 'TOO_SLOW' | 'MISS';
 
 /**
  * Timing thresholds in milliseconds
+ * Shifted to be more achievable - old GREAT is now PERFECT
  */
-const TIMING_THRESHOLDS = {
-  PERFECT: 400,   // Under 0.4s = Perfect
-  GREAT: 800,     // Under 0.8s = Great
-  GOOD: 1500,     // Under 1.5s = Good
+export const TIMING_THRESHOLDS = {
+  PERFECT: 800,   // Under 0.8s = Perfect (was Great)
+  GREAT: 1200,    // Under 1.2s = Great
+  GOOD: 1800,     // Under 1.8s = Good
   // Above 1.5s = Miss (timeout) or wrong input
 };
 
@@ -24,6 +27,7 @@ export const JUDGMENT_POINTS: Record<HitJudgment, number> = {
   PERFECT: 100,
   GREAT: 75,
   GOOD: 50,
+  TOO_SLOW: 0,
   MISS: 0,
 };
 
@@ -34,7 +38,8 @@ export const JUDGMENT_COLORS: Record<HitJudgment, string> = {
   PERFECT: '#ffd700',  // Gold
   GREAT: '#22c55e',    // Green
   GOOD: '#3b82f6',     // Blue
-  MISS: '#ef4444',     // Red
+  TOO_SLOW: '#f97316', // Orange - speed issue
+  MISS: '#ef4444',     // Red - accuracy issue
 };
 
 /**
@@ -57,6 +62,7 @@ export interface RhythmState {
   perfectCount: number;
   greatCount: number;
   goodCount: number;
+  tooSlowCount: number;
   missCount: number;
   totalScore: number;
 
@@ -71,6 +77,9 @@ export interface RhythmState {
 
   // Ring animation - only tracks active state, progress is calculated on demand
   ringActive: boolean;
+
+  // Pause state
+  isPaused: boolean;
 }
 
 const DEFAULT_RHYTHM_STATE: RhythmState = {
@@ -80,6 +89,7 @@ const DEFAULT_RHYTHM_STATE: RhythmState = {
   perfectCount: 0,
   greatCount: 0,
   goodCount: 0,
+  tooSlowCount: 0,
   missCount: 0,
   totalScore: 0,
   rhythmCombo: 0,
@@ -88,6 +98,7 @@ const DEFAULT_RHYTHM_STATE: RhythmState = {
   recentHitTimes: [],
   estimatedBPM: 120,
   ringActive: false,
+  isPaused: false,
 };
 
 /**
@@ -98,12 +109,16 @@ export interface RhythmSystemContextType {
 
   // Core methods
   startPattern: () => void;
-  recordHit: (correct: boolean) => HitJudgment;
+  recordHit: (correct: boolean, reason?: 'timeout' | 'wrong') => HitJudgment;
   resetRhythm: () => void;
+
+  // Pause/resume
+  pauseTimer: () => void;
+  resumeTimer: () => void;
 
   // Get timing info
   getCurrentTiming: () => number;
-  getJudgmentForTime: (ms: number, correct: boolean) => HitJudgment;
+  getJudgmentForTime: (ms: number, correct: boolean, reason?: 'timeout' | 'wrong') => HitJudgment;
 
   // Ring animation - get start time for components to calculate their own progress
   getPatternStartTime: () => number | null;
@@ -169,6 +184,7 @@ interface RhythmSystemProviderProps {
 export function RhythmSystemProvider({ children }: RhythmSystemProviderProps) {
   const [state, setState] = useState<RhythmState>(DEFAULT_RHYTHM_STATE);
   const startTimeRef = useRef<number | null>(null);
+  const pausedElapsedRef = useRef<number>(0); // Elapsed time when paused
 
   /**
    * Start timing for a new pattern
@@ -180,35 +196,44 @@ export function RhythmSystemProvider({ children }: RhythmSystemProviderProps) {
       ...prev,
       patternStartTime: now,
       ringActive: true,
-      lastJudgment: null,
+      // Don't clear lastJudgment here - let the JudgmentDisplay handle its own fadeout
     }));
   }, []);
 
   /**
    * Get judgment based on timing and correctness
+   * @param ms - elapsed time in milliseconds
+   * @param correct - whether the move was correct
+   * @param reason - optional reason for failure: 'timeout' (too slow) or 'wrong' (incorrect move)
    */
-  const getJudgmentForTime = useCallback((ms: number, correct: boolean): HitJudgment => {
-    if (!correct) return 'MISS';
+  const getJudgmentForTime = useCallback((ms: number, correct: boolean, reason?: 'timeout' | 'wrong'): HitJudgment => {
+    if (!correct) {
+      // Distinguish between timeout and wrong move
+      return reason === 'timeout' ? 'TOO_SLOW' : 'MISS';
+    }
     if (ms <= TIMING_THRESHOLDS.PERFECT) return 'PERFECT';
     if (ms <= TIMING_THRESHOLDS.GREAT) return 'GREAT';
     if (ms <= TIMING_THRESHOLDS.GOOD) return 'GOOD';
-    return 'MISS';
+    return 'TOO_SLOW'; // Over time but correct - shouldn't happen normally
   }, []);
 
   /**
    * Record a hit and return the judgment
+   * @param correct - whether the move was correct
+   * @param reason - optional reason for failure: 'timeout' (too slow) or 'wrong' (incorrect move)
    */
-  const recordHit = useCallback((correct: boolean): HitJudgment => {
+  const recordHit = useCallback((correct: boolean, reason?: 'timeout' | 'wrong'): HitJudgment => {
     const now = performance.now();
     const elapsed = startTimeRef.current !== null
       ? now - startTimeRef.current
       : TIMING_THRESHOLDS.GOOD + 1;
 
-    const judgment = getJudgmentForTime(elapsed, correct);
+    const judgment = getJudgmentForTime(elapsed, correct, reason);
     const points = JUDGMENT_POINTS[judgment];
 
     setState(prev => {
-      const newCombo = judgment !== 'MISS' ? prev.rhythmCombo + 1 : 0;
+      // Both MISS and TOO_SLOW break combo
+      const newCombo = (judgment !== 'MISS' && judgment !== 'TOO_SLOW') ? prev.rhythmCombo + 1 : 0;
       const multiplier = getMultiplierForCombo(newCombo);
       const earnedPoints = Math.floor(points * multiplier);
 
@@ -223,6 +248,7 @@ export function RhythmSystemProvider({ children }: RhythmSystemProviderProps) {
         perfectCount: prev.perfectCount + (judgment === 'PERFECT' ? 1 : 0),
         greatCount: prev.greatCount + (judgment === 'GREAT' ? 1 : 0),
         goodCount: prev.goodCount + (judgment === 'GOOD' ? 1 : 0),
+        tooSlowCount: prev.tooSlowCount + (judgment === 'TOO_SLOW' ? 1 : 0),
         missCount: prev.missCount + (judgment === 'MISS' ? 1 : 0),
         totalScore: prev.totalScore + earnedPoints,
         rhythmCombo: newCombo,
@@ -241,12 +267,38 @@ export function RhythmSystemProvider({ children }: RhythmSystemProviderProps) {
   }, [getJudgmentForTime]);
 
   /**
+   * Pause the timer - saves current elapsed time
+   */
+  const pauseTimer = useCallback(() => {
+    if (startTimeRef.current !== null && !state.isPaused) {
+      pausedElapsedRef.current = performance.now() - startTimeRef.current;
+      setState(prev => ({ ...prev, isPaused: true }));
+    }
+  }, [state.isPaused]);
+
+  /**
+   * Resume the timer - adjusts start time to continue from paused position
+   */
+  const resumeTimer = useCallback(() => {
+    if (state.isPaused && startTimeRef.current !== null) {
+      // Adjust start time so elapsed time continues from where we paused
+      startTimeRef.current = performance.now() - pausedElapsedRef.current;
+      setState(prev => ({
+        ...prev,
+        isPaused: false,
+        patternStartTime: startTimeRef.current,
+      }));
+    }
+  }, [state.isPaused]);
+
+  /**
    * Get current timing in ms
    */
   const getCurrentTiming = useCallback((): number => {
     if (startTimeRef.current === null) return 0;
+    if (state.isPaused) return pausedElapsedRef.current;
     return performance.now() - startTimeRef.current;
-  }, []);
+  }, [state.isPaused]);
 
   /**
    * Get pattern start time for components to calculate their own animation progress
@@ -268,6 +320,8 @@ export function RhythmSystemProvider({ children }: RhythmSystemProviderProps) {
     startPattern,
     recordHit,
     resetRhythm,
+    pauseTimer,
+    resumeTimer,
     getCurrentTiming,
     getJudgmentForTime,
     getPatternStartTime,
