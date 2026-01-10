@@ -3,10 +3,16 @@
 import { useTetrisGame, GameMode } from "@/hooks/use-tetris-game";
 import { useKeyBindings } from "@/hooks/use-key-bindings";
 import { useGameSettings } from "@/hooks/use-game-settings";
+import { useRhythmSystem, HitJudgment } from "@/hooks/use-rhythm-system";
+import { useDifficultySystem } from "@/hooks/use-difficulty-system";
+import { useVisualEffects } from "@/hooks/use-visual-effects";
 import { TETROMINO_SHAPES, TetrominoType } from "@/lib/types";
 import { MOVE_NAMES, FinesseMove } from "@/lib/finesse-data";
 import { TetrisCanvas } from "@/components/tetris-canvas";
-import { useEffect } from "react";
+import { JudgmentDisplay, TimingBar, RhythmStats } from "@/components/rhythm-overlay";
+import { DifficultyStats, DifficultyIndicator, FlowIndicator } from "@/components/difficulty-display";
+import { VisualEffectsLayer, ParticleRenderer } from "@/components/visual-effects";
+import { useEffect, useRef, useCallback } from "react";
 
 const MODE_NAMES: Record<GameMode, string> = {
   'RANDOM': 'All Random',
@@ -26,6 +32,92 @@ export function TetrisBoard() {
   const { grid, currentPiece, nextQueue, holdPiece, canHold, score, gameOver, gameMode, target, currentMoves, startGame, handleAction, getTargetPiece } = game;
   const { getAction } = useKeyBindings();
   const { settings } = useGameSettings();
+  const rhythm = useRhythmSystem();
+  const difficulty = useDifficultySystem();
+  const visualEffects = useVisualEffects();
+
+  // Track piece changes to start rhythm timing
+  const prevPieceRef = useRef<typeof currentPiece>(null);
+  const lastDropTimeRef = useRef(0);
+  const comboBeforeDropRef = useRef(0);
+  const currentScoreRef = useRef(score);
+
+  // Start rhythm timing when a new piece spawns
+  useEffect(() => {
+    // Detect new piece spawn - compare by reference, not just type
+    // This handles same piece type appearing twice in a row
+    const pieceChanged = currentPiece !== prevPieceRef.current;
+
+    if (currentPiece && pieceChanged && gameMode === 'LEARNING' && !gameOver) {
+      // Delay must be > 60ms to ensure recordHit completes first
+      // recordHit is called after 60ms in handleActionWithRhythm
+      const timeSinceLastDrop = performance.now() - lastDropTimeRef.current;
+      const delay = timeSinceLastDrop < 150 ? 100 : 0;
+
+      setTimeout(() => {
+        rhythm.startPattern();
+      }, delay);
+    }
+    prevPieceRef.current = currentPiece;
+  }, [currentPiece, gameMode, gameOver, rhythm]);
+
+  // Reset rhythm when game restarts
+  useEffect(() => {
+    if (gameOver) {
+      rhythm.resetRhythm();
+    }
+  }, [gameOver, rhythm]);
+
+  // Track previous combo for effect triggers
+  const prevComboRef = useRef(0);
+
+  // Trigger visual effects when combo changes
+  useEffect(() => {
+    if (score.combo > prevComboRef.current && score.combo > 0) {
+      // Trigger combo effect for milestones
+      visualEffects.triggerComboEffect(score.combo);
+      visualEffects.triggerStreakEffect(score.combo);
+    }
+    prevComboRef.current = score.combo;
+  }, [score.combo, visualEffects]);
+
+  // Keep score ref in sync with latest state
+  useEffect(() => {
+    currentScoreRef.current = score;
+    comboBeforeDropRef.current = score.combo;
+  }, [score]);
+
+  // Wrap handleAction to record rhythm hits and difficulty on hard drop
+  const handleActionWithRhythm = useCallback((action: string, isKeyDown: boolean) => {
+    if (action === 'HARD_DROP' && isKeyDown && !gameOver && gameMode === 'LEARNING') {
+      lastDropTimeRef.current = performance.now();
+      const startTime = rhythm.getCurrentTiming();
+      const comboBefore = comboBeforeDropRef.current;
+
+      // Process the drop first
+      handleAction(action, isKeyDown);
+
+      // Defer recording to after the state updates
+      setTimeout(() => {
+        // Check if combo increased (correct placement) using ref for latest value
+        const correct = currentScoreRef.current.combo > comboBefore;
+        const responseTime = startTime || 1000;
+
+        // Record to rhythm system and get judgment
+        const judgment = rhythm.recordHit(correct);
+
+        // Trigger visual effects based on judgment
+        const effectX = 140;
+        const effectY = 280;
+        visualEffects.triggerJudgmentEffect(judgment, effectX, effectY);
+
+        // Record to difficulty system
+        difficulty.recordAttempt(correct, responseTime);
+      }, 60);
+      return; // Already called handleAction above
+    }
+    handleAction(action, isKeyDown);
+  }, [handleAction, gameOver, gameMode, rhythm, difficulty, visualEffects]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -35,7 +127,7 @@ export function TetrisBoard() {
       const action = getAction(e.code);
       if (action) {
         e.preventDefault();
-        handleAction(action, true);
+        handleActionWithRhythm(action, true);
       }
     };
 
@@ -43,7 +135,7 @@ export function TetrisBoard() {
       const action = getAction(e.code);
       if (action) {
         e.preventDefault();
-        handleAction(action, false);
+        handleActionWithRhythm(action, false);
       }
     };
 
@@ -53,20 +145,51 @@ export function TetrisBoard() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [getAction, handleAction]);
+  }, [getAction, handleActionWithRhythm]);
 
   const renderGrid = () => {
     const targetPiece = getTargetPiece();
 
     return (
-      <TetrisCanvas
-        grid={grid}
-        currentPiece={currentPiece}
-        targetPiece={targetPiece}
-        showGhost={settings.showGhost}
-        gameMode={gameMode}
-      />
+      <VisualEffectsLayer>
+        <div className="relative">
+          <TetrisCanvas
+            grid={grid}
+            currentPiece={currentPiece}
+            targetPiece={targetPiece}
+            showGhost={settings.showGhost}
+            gameMode={gameMode}
+          />
+          {/* Rhythm judgment overlay - only in Learning mode */}
+          {gameMode === 'LEARNING' && <JudgmentDisplay />}
+        </div>
+      </VisualEffectsLayer>
     );
+  };
+
+  const renderTimingBar = () => {
+    if (gameMode !== 'LEARNING') return null;
+    return <TimingBar />;
+  };
+
+  const renderRhythmStats = () => {
+    if (gameMode !== 'LEARNING') return null;
+    return <RhythmStats />;
+  };
+
+  const renderDifficultyStats = () => {
+    if (gameMode !== 'LEARNING') return null;
+    return <DifficultyStats />;
+  };
+
+  const renderDifficultyIndicator = () => {
+    if (gameMode !== 'LEARNING') return null;
+    return <DifficultyIndicator />;
+  };
+
+  const renderFlowIndicator = () => {
+    if (gameMode !== 'LEARNING') return null;
+    return <FlowIndicator />;
   };
 
   const renderPiecePreview = (type: TetrominoType, small = false) => {
@@ -190,6 +313,13 @@ export function TetrisBoard() {
     renderPiecePreview,
     renderTargetMoves,
     renderInputSequence,
+    renderTimingBar,
+    renderRhythmStats,
+    renderDifficultyStats,
+    renderDifficultyIndicator,
+    renderFlowIndicator,
+    rhythmState: rhythm.state,
+    difficultyState: difficulty.state,
     cycleMode: game.cycleMode,
     setMode: game.setMode,
   };
