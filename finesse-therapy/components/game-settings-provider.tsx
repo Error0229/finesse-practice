@@ -8,24 +8,25 @@ import {
   STORAGE_KEY
 } from '@/hooks/use-game-settings';
 
-function getInitialSettings(): GameSettings {
-  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-    } catch {
-      return DEFAULT_SETTINGS;
-    }
-  }
-  return DEFAULT_SETTINGS;
-}
-
 export function GameSettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<GameSettings>(getInitialSettings);
-  const mountedRef = useRef(true);
+  // Always start with defaults to avoid hydration mismatch
+  const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
+  const mountedRef = useRef(false);
 
-  // Save to localStorage
+  // Load from localStorage on mount (client-only)
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        setSettings(prev => ({ ...prev, ...JSON.parse(stored) }));
+      } catch {
+        // Invalid stored data, keep defaults
+      }
+    }
+    mountedRef.current = true;
+  }, []);
+
+  // Save to localStorage after initial mount
   useEffect(() => {
     if (mountedRef.current) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));

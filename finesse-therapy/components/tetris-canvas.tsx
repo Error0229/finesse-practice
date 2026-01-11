@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, MutableRefObject } from 'react';
 import { TetrominoType, TETROMINO_SHAPES } from '@/lib/types';
 
 const GRID_WIDTH = 10;
 const GRID_HEIGHT = 20;
-const CELL_SIZE = 28;
+const CELL_SIZE = 36;
 
 // Colors for each tetromino type
 const TETROMINO_COLORS: Record<TetrominoType, [number, number, number]> = {
@@ -27,7 +27,7 @@ interface Piece {
 
 interface TetrisCanvasProps {
   grid: (TetrominoType | null)[][];
-  currentPiece: Piece | null;
+  currentPieceRef: MutableRefObject<Piece | null>;
   targetPiece: Piece | null;
   showGhost: boolean;
   gameMode: string;
@@ -87,7 +87,7 @@ function calculateGhostY(piece: Piece, grid: (TetrominoType | null)[][]): number
 
 export function TetrisCanvas({
   grid,
-  currentPiece,
+  currentPieceRef,
   targetPiece,
   showGhost,
   gameMode,
@@ -95,6 +95,37 @@ export function TetrisCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programRef = useRef<WebGLProgram | null>(null);
+  const rafRef = useRef<number>(0);
+
+  // Reusable WebGL buffers (avoid creating/deleting every frame)
+  const positionBufferRef = useRef<WebGLBuffer | null>(null);
+  const colorBufferRef = useRef<WebGLBuffer | null>(null);
+  const positionLocationRef = useRef<number>(-1);
+  const colorLocationRef = useRef<number>(-1);
+  const resolutionLocationRef = useRef<WebGLUniformLocation | null>(null);
+
+  // Cache refs for render loop (avoid reading props in RAF)
+  const gridRef = useRef(grid);
+  const targetPieceRef = useRef(targetPiece);
+  const showGhostRef = useRef(showGhost);
+  const gameModeRef = useRef(gameMode);
+
+  // Update cache refs when props change
+  useEffect(() => {
+    gridRef.current = grid;
+  }, [grid]);
+
+  useEffect(() => {
+    targetPieceRef.current = targetPiece;
+  }, [targetPiece]);
+
+  useEffect(() => {
+    showGhostRef.current = showGhost;
+  }, [showGhost]);
+
+  useEffect(() => {
+    gameModeRef.current = gameMode;
+  }, [gameMode]);
 
   const createShader = useCallback((gl: WebGLRenderingContext, type: number, source: string) => {
     const shader = gl.createShader(type);
@@ -123,37 +154,18 @@ export function TetrisCanvas({
     return program;
   }, []);
 
-  // Initialize WebGL
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const gl = canvas.getContext('webgl', { antialias: false, alpha: false });
-    if (!gl) {
-      console.error('WebGL not supported');
-      return;
-    }
-    glRef.current = gl;
-
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
-    if (!vertexShader || !fragmentShader) return;
-
-    const program = createProgram(gl, vertexShader, fragmentShader);
-    if (!program) return;
-    programRef.current = program;
-
-    gl.useProgram(program);
-    gl.viewport(0, 0, canvas.width, canvas.height);
-  }, [createShader, createProgram]);
-
-  // Render loop - use useLayoutEffect to draw synchronously before browser paint
-  // This prevents the one-frame delay where old content would be visible
-  useLayoutEffect(() => {
+  // Render function - reads from refs, no React dependencies
+  const render = useCallback(() => {
     const gl = glRef.current;
     const program = programRef.current;
     const canvas = canvasRef.current;
     if (!gl || !program || !canvas) return;
+
+    const currentGrid = gridRef.current;
+    const currentPiece = currentPieceRef.current;
+    const currentTargetPiece = targetPieceRef.current;
+    const currentShowGhost = showGhostRef.current;
+    const currentGameMode = gameModeRef.current;
 
     // Clear
     gl.clearColor(0.05, 0.05, 0.08, 1);
@@ -225,16 +237,16 @@ export function TetrisCanvas({
     }
 
     // Draw target piece (if in finesse mode)
-    if (targetPiece && gameMode !== 'FREE_STACK') {
-      const shape = TETROMINO_SHAPES[targetPiece.type][targetPiece.rotation];
+    if (currentTargetPiece && currentGameMode !== 'FREE_STACK') {
+      const shape = TETROMINO_SHAPES[currentTargetPiece.type][currentTargetPiece.rotation];
       for (let py = 0; py < shape.length; py++) {
         for (let px = 0; px < shape[py].length; px++) {
           if (shape[py][px]) {
-            const gx = targetPiece.x + px;
-            const gy = targetPiece.y + py;
+            const gx = currentTargetPiece.x + px;
+            const gy = currentTargetPiece.y + py;
             if (gy >= 0 && gy < GRID_HEIGHT && gx >= 0 && gx < GRID_WIDTH) {
               // Check if there's no piece here
-              if (!grid[gy][gx]) {
+              if (!currentGrid[gy][gx]) {
                 addCellBorder(gx, gy, 1, 1, 1, 0.6);
               }
             }
@@ -244,8 +256,8 @@ export function TetrisCanvas({
     }
 
     // Draw ghost piece
-    if (currentPiece && showGhost) {
-      const ghostY = calculateGhostY(currentPiece, grid);
+    if (currentPiece && currentShowGhost) {
+      const ghostY = calculateGhostY(currentPiece, currentGrid);
       const shape = TETROMINO_SHAPES[currentPiece.type][currentPiece.rotation];
       const [r, g, b] = TETROMINO_COLORS[currentPiece.type];
       for (let py = 0; py < shape.length; py++) {
@@ -255,7 +267,7 @@ export function TetrisCanvas({
             const gy = ghostY + py;
             if (gy >= 0 && gy < GRID_HEIGHT && gx >= 0 && gx < GRID_WIDTH) {
               // Check if there's no locked piece here
-              if (!grid[gy][gx]) {
+              if (!currentGrid[gy][gx]) {
                 addCell(gx, gy, r / 255 * 0.4, g / 255 * 0.4, b / 255 * 0.4, 1);
               }
             }
@@ -267,7 +279,7 @@ export function TetrisCanvas({
     // Draw locked cells
     for (let y = 0; y < GRID_HEIGHT; y++) {
       for (let x = 0; x < GRID_WIDTH; x++) {
-        const cell = grid[y][x];
+        const cell = currentGrid[y][x];
         if (cell) {
           const [r, g, b] = TETROMINO_COLORS[cell];
           addCell(x, y, r / 255, g / 255, b / 255, 1);
@@ -292,37 +304,92 @@ export function TetrisCanvas({
       }
     }
 
-    // Create and bind buffers
-    const positionBuffer = gl.createBuffer();
+    // Reuse buffers - just update data with DYNAMIC_DRAW for frequent updates
+    const positionBuffer = positionBufferRef.current;
+    const colorBuffer = colorBufferRef.current;
+    if (!positionBuffer || !colorBuffer) return;
+
+    // Upload position data
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+    gl.vertexAttribPointer(positionLocationRef.current, 2, gl.FLOAT, false, 0, 0);
 
-    const positionLocation = gl.getAttribLocation(program, 'a_position');
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-    const colorBuffer = gl.createBuffer();
+    // Upload color data
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.DYNAMIC_DRAW);
+    gl.vertexAttribPointer(colorLocationRef.current, 4, gl.FLOAT, false, 0, 0);
 
-    const colorLocation = gl.getAttribLocation(program, 'a_color');
-    gl.enableVertexAttribArray(colorLocation);
-    gl.vertexAttribPointer(colorLocation, 4, gl.FLOAT, false, 0, 0);
+    // Draw (no need to set uniforms/blending - done once at init)
+    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 2);
+  }, [currentPieceRef]);
 
-    const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
-    gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+  // Initialize WebGL
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    // Enable blending for transparency
+    const gl = canvas.getContext('webgl', { antialias: false, alpha: false });
+    if (!gl) {
+      console.error('WebGL not supported');
+      return;
+    }
+    glRef.current = gl;
+
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
+    if (!vertexShader || !fragmentShader) return;
+
+    const program = createProgram(gl, vertexShader, fragmentShader);
+    if (!program) return;
+    programRef.current = program;
+
+    gl.useProgram(program);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+
+    // Create reusable buffers once
+    positionBufferRef.current = gl.createBuffer();
+    colorBufferRef.current = gl.createBuffer();
+
+    // Cache attribute and uniform locations (expensive lookup)
+    positionLocationRef.current = gl.getAttribLocation(program, 'a_position');
+    colorLocationRef.current = gl.getAttribLocation(program, 'a_color');
+    resolutionLocationRef.current = gl.getUniformLocation(program, 'u_resolution');
+
+    // Set up resolution uniform once (canvas size doesn't change)
+    gl.uniform2f(resolutionLocationRef.current, canvas.width, canvas.height);
+
+    // Enable blending once
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // Draw
-    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 2);
+    // Enable vertex attrib arrays once
+    gl.enableVertexAttribArray(positionLocationRef.current);
+    gl.enableVertexAttribArray(colorLocationRef.current);
 
-    // Cleanup
-    gl.deleteBuffer(positionBuffer);
-    gl.deleteBuffer(colorBuffer);
-  }, [grid, currentPiece, targetPiece, showGhost, gameMode]);
+    return () => {
+      // Cleanup buffers on unmount
+      if (positionBufferRef.current) gl.deleteBuffer(positionBufferRef.current);
+      if (colorBufferRef.current) gl.deleteBuffer(colorBufferRef.current);
+    };
+  }, [createShader, createProgram]);
+
+  // RAF render loop - runs continuously, reads from refs
+  useEffect(() => {
+    let running = true;
+
+    const loop = () => {
+      if (!running) return;
+      render();
+      rafRef.current = requestAnimationFrame(loop);
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, [render]);
 
   return (
     <canvas
