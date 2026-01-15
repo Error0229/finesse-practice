@@ -703,8 +703,7 @@ export function useTetrisGame() {
     leftDasRef.current = false;
     leftDasCounterRef.current = 0;
     leftArrCounterRef.current = 0;
-    // Cancel opposite direction's DAS to prevent conflicts when switching directions
-    rightDasRef.current = false;
+    // Clear opposite direction's DAS timing (but not the flag - that's needed for move recording)
     rightDasStartRef.current = null;
     stableMovePiece(-1, 0);
   }, [stableMovePiece]);
@@ -729,8 +728,7 @@ export function useTetrisGame() {
     rightDasRef.current = false;
     rightDasCounterRef.current = 0;
     rightArrCounterRef.current = 0;
-    // Cancel opposite direction's DAS to prevent conflicts when switching directions
-    leftDasRef.current = false;
+    // Clear opposite direction's DAS timing (but not the flag - that's needed for move recording)
     leftDasStartRef.current = null;
     stableMovePiece(1, 0);
   }, [stableMovePiece]);
