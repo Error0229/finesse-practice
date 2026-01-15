@@ -703,11 +703,16 @@ export function useTetrisGame() {
     leftDasRef.current = false;
     leftDasCounterRef.current = 0;
     leftArrCounterRef.current = 0;
+    // Cancel opposite direction's DAS to prevent conflicts when switching directions
+    rightDasRef.current = false;
+    rightDasStartRef.current = null;
     stableMovePiece(-1, 0);
   }, [stableMovePiece]);
 
   const handleLeftRelease = useCallback(() => {
     leftHeldRef.current = false;
+    // Clear DAS timing immediately on release to prevent lingering state
+    leftDasStartRef.current = null;
     if (leftDasRef.current) {
       moveListRef.current.push('DL');
     } else {
@@ -724,11 +729,16 @@ export function useTetrisGame() {
     rightDasRef.current = false;
     rightDasCounterRef.current = 0;
     rightArrCounterRef.current = 0;
+    // Cancel opposite direction's DAS to prevent conflicts when switching directions
+    leftDasRef.current = false;
+    leftDasStartRef.current = null;
     stableMovePiece(1, 0);
   }, [stableMovePiece]);
 
   const handleRightRelease = useCallback(() => {
     rightHeldRef.current = false;
+    // Clear DAS timing immediately on release to prevent lingering state
+    rightDasStartRef.current = null;
     if (rightDasRef.current) {
       moveListRef.current.push('DR');
     } else {

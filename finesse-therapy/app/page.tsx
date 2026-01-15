@@ -181,7 +181,7 @@ export default function Page() {
         {/* Right Column: Guidance & Progress */}
         <div className="flex flex-col gap-3 w-[240px] shrink-0 h-full overflow-y-auto pl-1 custom-scrollbar">
            {game.gameMode !== "FREE_STACK" && (
-            <Card className="p-3 bg-card/50 backdrop-blur-sm border-border/50 flex flex-col h-[140px]">
+            <Card className="p-3 bg-card/50 backdrop-blur-sm border-border/50 flex flex-col h-[280px]">
               <div className="text-[9px] font-bold mb-2 text-muted-foreground tracking-wider uppercase shrink-0">Target</div>
               <div className="bg-background/50 rounded-lg p-2 flex-1 flex items-center justify-center border border-border/50 overflow-y-auto custom-scrollbar">
                 {game.renderTargetMoves() || (
@@ -193,7 +193,7 @@ export default function Page() {
             </Card>
           )}
 
-          <Card className="p-3 bg-card/50 backdrop-blur-sm border-border/50 flex flex-col h-[100px]">
+          <Card className="p-3 bg-card/50 backdrop-blur-sm border-border/50 flex flex-col h-[200px]">
             <div className="text-[9px] font-bold mb-2 text-muted-foreground tracking-wider uppercase shrink-0">Inputs</div>
             <div className="bg-background/50 rounded-lg p-2 flex-1 flex items-center justify-center border border-border/50 overflow-hidden relative">
                <div className="absolute inset-x-0 bottom-0 top-0 overflow-y-auto custom-scrollbar flex flex-col items-center justify-center">
